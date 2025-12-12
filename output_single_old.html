@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single Panel Comic</title>
+    <style>
+        /* General body styling */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0; /* Light background for the page itself */
+        }
+
+        h1 {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            color: #333;
+        }
+
+        /* Comic Panel Container */
+        .comic-panel {
+            position: relative;
+            width: 90vw;
+            height: 90vh;
+            max-width: 1200px; /* Limit max width for very large screens */
+            max-height: 900px; /* Limit max height for very large screens */
+            margin: 0 auto; /* Center horizontally */
+            border: 10px solid black;
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+            overflow: hidden; /* Ensure content doesn't spill out */
+            background-color: #7b583f; /* Thematic base color for a 17th-century study */
+            /* Background Description from prompt:
+               "A grand, slightly cluttered study from the late 17th century.
+               Bookshelves overflowing with tomes line the walls, a globe stands in one corner.
+               Sunlight streams through a tall window, through which a lush apple tree with a few ripe apples can be seen.
+               On a sturdy wooden table between the characters, there are various scientific instruments, papers, and an inkwell."
+               (Note: This visual description is for context; the background is represented
+               by a thematic color in this raw HTML output as image generation is not supported here.) */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* Character Container Styling */
+        .character-container {
+            position: absolute;
+            height: 80%; /* Adjust character height within the panel, allows space for dialogue above */
+            bottom: 0; /* Align characters to the bottom of the panel */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Align SVG to bottom of its container */
+            align-items: center;
+        }
+
+        /* Specific character slot positioning */
+        .character-container.left {
+            left: 10%;
+            width: 30%;
+        }
+
+        .character-container.right {
+            right: 10%;
+            width: 30%;
+        }
+
+        .character-container.center {
+            left: 35%;
+            width: 30%;
+        }
+
+        /* SVG styling for characters */
+        .character-svg-wrapper {
+            width: 100%;
+            height: auto;
+            max-height: 100%; /* Ensure SVG doesn't overflow its container */
+            display: flex;
+            justify-content: center; /* Center the SVG within its wrapper */
+            align-items: flex-end; /* Align SVG to bottom */
+        }
+
+        .character-svg-wrapper svg {
+            width: 100%; /* Make SVG fill its wrapper width */
+            height: auto; /* Maintain aspect ratio */
+            display: block; /* Remove extra space below SVG */
+        }
+
+        /* Facing direction */
+        .character-svg-wrapper.facing-left svg {
+            transform: scaleX(-1);
+        }
+
+        /* Speech Bubble Styling */
+        .speech-bubble {
+            position: absolute;
+            background-color: white;
+            border: 2px solid black;
+            border-radius: 20px; /* Oval shape */
+            padding: 15px 20px;
+            text-align: left;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: clamp(0.8em, 1.5vw, 1.2em); /* Responsive font size */
+            color: black;
+            z-index: 10;
+            max-width: 28%; /* Limit width relative to panel */
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            line-height: 1.3;
+        }
+
+        /* Speech bubble tails (black border) */
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 15px solid transparent;
+            border-top-color: black; /* Points up by default, we'll rotate */
+            bottom: -28px; /* Position below the bubble */
+            left: 50%; /* Centered horizontally on the bubble */
+            transform: translateX(-50%) rotate(180deg); /* Rotate to point down */
+            z-index: 1;
+        }
+
+        /* Speech bubble tails (white inner part) */
+        .speech-bubble::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 13px solid transparent; /* Slightly smaller for inner part */
+            border-top-color: white; /* Points up by default, we'll rotate */
+            bottom: -25px; /* Position slightly above the black tail */
+            left: 50%; /* Centered horizontally on the bubble */
+            transform: translateX(-50%) rotate(180deg); /* Rotate to point down */
+            z-index: 2; /* Ensure it's above the black border */
+        }
+
+        /* Specific bubble positioning for Newton (left character) */
+        .speech-bubble.newton {
+            top: 10%; /* Adjust vertically */
+            left: 20%; /* Position relative to the left of the panel */
+        }
+
+        /* Specific bubble positioning for Student (right character) */
+        .speech-bubble.student {
+            top: 15%; /* Adjust vertically */
+            right: 18%; /* Position relative to the right of the panel */
+        }
+    </style>
+</head>
+<body>
+    <h1>Single Panel Comic</h1>
+
+    <div class="comic-panel">
+        <!-- Background Description:
+             "A grand, slightly cluttered study from the late 17th century.
+             Bookshelves overflowing with tomes line the walls, a globe stands in one corner.
+             Sunlight streams through a tall window, through which a lush apple tree with a few ripe apples can be seen.
+             On a sturdy wooden table between the characters, there are various scientific instruments, papers, and an inkwell."
+             (Note: This visual description is for context; the background is represented
+             by a thematic color in this raw HTML output as image generation is not supported here.) -->
+
+        <!-- Character: Sir Isaac Newton -->
+        <div id="character-newton" class="character-container left">
+            <div class="character-svg-wrapper facing-right">
+                <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Define a simple gradient for skin tone to add a little depth -->
+                  <defs>
+                    <linearGradient id="skinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" style="stop-color:#FCD7B5;stop-opacity:1" />
+                      <stop offset="100%" style="stop-color:#E0BB90;stop-opacity:1" />
+                    </linearGradient>
+                  </defs>
+
+                  <!-- Pristine White Powdered Wig -->
+                  <path d="M35 25 Q30 10 50 10 Q70 10 65 25 C75 30 75 40 65 42 Q60 45 50 42 Q40 45 35 42 C25 40 25 30 35 25 Z" fill="white" stroke="#ccc" stroke-width="0.5"/>
+
+                  <!-- Head (Circle) -->
+                  <circle cx="50" cy="28" r="8" fill="url(#skinGradient)"/>
+
+                  <!-- Face: Eyes and Mouth (Profound Insight & Slight Impatience) -->
+                  <circle cx="47" cy="26" r="1" fill="black"/> <!-- Left eye -->
+                  <circle cx="53" cy="26" r="1" fill="black"/> <!-- Right eye -->
+                  <!-- Mouth: A firm, slightly downturned line for insight and impatience -->
+                  <path d="M47 31 C48 30 52 30 53 31" stroke="black" stroke-width="0.7" fill="none"/>
+
+                  <!-- Neck (Rectangle) -->
+                  <rect x="48" y="36" width="4" height="4" fill="url(#skinGradient)"/>
+
+                  <!-- Elegant Dark Academic Robes (Paper Doll style using a simple trapezoid path) -->
+                  <path d="M40 40 L30 85 L70 85 L60 40 Z" fill="#333333" />
+
+                  <!-- Right Arm: Holding a Ripe Red Apple Aloft -->
+                  <!-- Robe sleeve for the upper arm -->
+                  <path d="M57 42 L65 30 L68 32 L60 44 Z" fill="#333333" />
+                  <!-- Forearm (skin tone line with rounded cap) -->
+                  <line x1="66" y1="30" x2="72" y2="18" stroke="url(#skinGradient)" stroke-width="4" stroke-linecap="round"/>
+                  <!-- Hand (small circle) -->
+                  <circle cx="72" cy="18" r="3" fill="url(#skinGradient)"/>
+                  <!-- Apple (red circle with a stem) -->
+                  <circle cx="72" cy="12" r="4" fill="#D00000"/>
+                  <line x1="72" y1="8" x2="73" y2="7" stroke="#6B4D3C" stroke-width="1"/>
+
+                  <!-- Left Arm: Gesturing Emphatically Towards the Floor -->
+                  <!-- Robe sleeve for the upper arm -->
+                  <path d="M43 42 L35 60 L38 62 L46 44 Z" fill="#333333" />
+                  <!-- Forearm (skin tone line with rounded cap) -->
+                  <line x1="36" y1="60" x2="30" y2="78" stroke="url(#skinGradient)" stroke-width="4" stroke-linecap="round"/>
+                  <!-- Hand (small circle) -->
+                  <circle cx="30" cy="78" r="3" fill="url(#skinGradient)"/>
+                  <!-- Pointing Finger (small line) -->
+                  <line x1="30" y1="78" x2="28" y2="81" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+
+                  <!-- Legs and Feet (simple rectangles peeking out from under the robes) -->
+                  <rect x="40" y="85" width="8" height="3" fill="black"/> <!-- Left foot/shoe -->
+                  <rect x="52" y="85" width="8" height="3" fill="black"/> <!-- Right foot/shoe -->
+                </svg>
+            </div>
+        </div>
+
+        <!-- Dialogue for Sir Isaac Newton -->
+        <div class="speech-bubble newton">
+            Observe, young lad! This apple, released from my grasp, plummets not by whim or chance, but by an unseen, undeniable force! It is the Universal Law of Gravitation! Every particle attracts every other particle with a force proportional to the product of their masses and inversely proportional to the square of the distance between their centers! Do you comprehend? The very cosmos is bound by this elegant, immutable dance!
+        </div>
+
+        <!-- Character: Confused Student -->
+        <div id="character-student" class="character-container right">
+            <div class="character-svg-wrapper facing-left">
+                <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                  <g id="confused-student">
+                    <!-- Hair (messy) -->
+                    <path d="M40 18 Q 45 10 50 18 M50 18 Q 55 10 60 18 M35 25 Q 30 20 35 30 Q 30 35 35 40 M65 25 Q 70 20 65 30 Q 70 35 65 40" stroke="#4a2c0f" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    
+                    <!-- Head -->
+                    <circle cx="50" cy="30" r="15" fill="#f2d2b1" stroke="black" stroke-width="0.5"/>
+
+                    <!-- Face Features -->
+                    <!-- Furrowed Brow -->
+                    <path d="M44 25 C 45 23 48 23 49 25" stroke="black" stroke-width="1" fill="none"/>
+                    <path d="M51 25 C 52 23 55 23 56 25" stroke="black" stroke-width="1" fill="none"/>
+                    <!-- Eyes (wide, unfocused) -->
+                    <circle cx="45" cy="30" r="3.5" fill="white" stroke="black" stroke-width="0.5"/>
+                    <circle cx="45.5" cy="30.5" r="1" fill="black"/> <!-- Left pupil -->
+                    <circle cx="55" cy="30" r="3.5" fill="white" stroke="black" stroke-width="0.5"/>
+                    <circle cx="54.5" cy="30.5" r="1" fill="black"/> <!-- Right pupil -->
+                    <!-- Mouth (slightly agape) -->
+                    <path d="M48 38 Q 50 42 52 38 Q 50 39 48 38 Z" fill="#994444" stroke="black" stroke-width="0.5"/>
+
+                    <!-- Tunic (simple, rumpled 17th-century style) -->
+                    <rect x="38" y="45" width="24" height="30" fill="#a08b6e" stroke="black" stroke-width="0.5"/>
+                    <!-- Collar -->
+                    <path d="M38 45 Q 50 40 62 45 L 60 48 Q 50 43 40 48 Z" fill="white" stroke="black" stroke-width="0.5"/>
+
+                    <!-- Left Arm & Hand (scratching head) -->
+                    <rect x="30" y="48" width="8" height="20" fill="#a08b6e" stroke="black" stroke-width="0.5"/> <!-- Sleeve -->
+                    <line x1="34" y1="58" x2="38" y2="40" stroke="#f2d2b1" stroke-width="2" stroke-linecap="round"/> <!-- Arm -->
+                    <circle cx="38" cy="35" r="4" fill="#f2d2b1" stroke="black" stroke-width="0.5"/> <!-- Hand -->
+
+                    <!-- Right Arm & Hand (holding quill) -->
+                    <rect x="62" y="48" width="8" height="20" fill="#a08b6e" stroke="black" stroke-width="0.5"/> <!-- Sleeve -->
+                    <line x1="66" y1="58" x2="70" y2="70" stroke="#f2d2b1" stroke-width="2" stroke-linecap="round"/> <!-- Arm -->
+                    <circle cx="70" cy="73" r="4" fill="#f2d2b1" stroke="black" stroke-width="0.5"/> <!-- Hand -->
+
+                    <!-- Quill -->
+                    <line x1="68" y1="68" x2="75" y2="85" stroke="#4a2c0f" stroke-width="1"/> <!-- Shaft -->
+                    <path d="M75 85 L 78 83 L 75 80 Z" fill="#4a2c0f" stroke="black" stroke-width="0.5"/> <!-- Feather tip -->
+
+                    <!-- Legs (simple pants/hose) -->
+                    <rect x="42" y="75" width="6" height="15" fill="#555" stroke="black" stroke-width="0.5"/>
+                    <rect x="52" y="75" width="6" height="15" fill="#555" stroke="black" stroke-width="0.5"/>
+                    
+                    <!-- Feet (shoes) -->
+                    <ellipse cx="45" cy="91" rx="4" ry="2" fill="#333" stroke="black" stroke-width="0.5"/>
+                    <ellipse cx="55" cy="91" rx="4" ry="2" fill="#333" stroke="black" stroke-width="0.5"/>
+                  </g>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Dialogue for Confused Student -->
+        <div class="speech-bubble student">
+            So... the apple... it 'likes' the Earth? And the Earth... it 'likes' the apple back? And 'inversely proportional to the square of the distance'... does that mean if I stand on the moon, the apple 'likes' the Earth less? My quill is confused, Sir Newton, much like my very soul!
+        </div>
+    </div>
+</body>
+</html>
