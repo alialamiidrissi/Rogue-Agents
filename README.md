@@ -1,42 +1,111 @@
-# Agentic AI App Hackathon Template
+# Cartoon Generator for Learning Anything
 
-Welcome! This repository is your starting point for the **Agentic AI App Hackathon**. It includes:
+Welcome to **Cartoon Generator for Learning Anything**! This innovative app uses AI-powered agents to create educational cartoon comics that make learning fun and engaging for kids and adults alike.
 
-- A consistent folder structure  
-- An environment spec (`environment.yml` or `Dockerfile`)  
-- Documentation placeholders to explain your design and demo
+## 🎯 What It Does
 
-## 📋 Submission Checklist
+- **AI-Generated Comics**: Input any topic or idea, and our agent creates a custom 3-panel cartoon comic explaining it
+- **Educational Focus**: Turns complex concepts into visual, story-driven learning experiences
+- **Interactive UI**: Kid-friendly Gradio interface with real-time progress tracking
+- **Email Delivery**: Comics sent directly to your inbox as HTML attachments
+- **Download Option**: Direct download of generated comics
 
-- [ ] All code in `src/` runs without errors  
-- [ ] `ARCHITECTURE.md` contains a clear diagram sketch and explanation  
-- [ ] `EXPLANATION.md` covers planning, tool use, memory, and limitations  
-- [ ] `DEMO.md` links to a 3–5 min video with timestamped highlights  
+## 🚀 Features
 
+- 🤖 **LangGraph Agent**: Orchestrates comic creation with Director, Asset Generator, and Compositor nodes
+- 🎨 **Gemini Integration**: Uses Google Gemini 2.5 Flash for creative script writing and SVG generation
+- 📧 **Email System**: Automated delivery using Gmail SMTP
+- 🌈 **Kid-Friendly UI**: Cartoonish design with animations and emojis
+- 📖 **Example Comics**: Built-in preview of generated content
 
-## 🚀 Getting Started
+## 📋 Setup Instructions
 
-1. **Clone / Fork** this template.  Very Important. Fork Name MUST be the same name as the teamn name
+### Prerequisites
+- Python 3.10+
+- Google Gemini API key (get from [Google AI Studio](https://makersuite.google.com/app/apikey))
 
+### Installation
 
-## 📂 Folder Layout
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd Rogue-Agents
+   ```
 
-![Folder Layout Diagram](images/folder-githb.png)
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
+3. **Set up environment variables**:
+   - Copy `.env.example` to `.env` (or create `.env`)
+   - Add your API keys:
+     ```
+     GOOGLE_API_KEY=your_gemini_api_key_here
+     senderEmail=your_sender_email@gmail.com
+     senderPassword="your_gmail_app_password"
+     ```
+     **Note:** If your Gmail app password contains spaces, wrap it in quotes as shown above.
 
+4. **Run the app**:
+   ```bash
+   python gradio_chatbot.py
+   ```
 
-## 🏅 Judging Criteria
+5. **Access the interface**:
+   - Open http://0.0.0.0:7660 in your browser
+   - Or use the public Gradio share link
 
-- **Technical Excellence **  
-  This criterion evaluates the robustness, functionality, and overall quality of the technical implementation. Judges will assess the code's efficiency, the absence of critical bugs, and the successful execution of the project's core features.
+### Dependencies
 
-- **Solution Architecture & Documentation **  
-  This focuses on the clarity, maintainability, and thoughtful design of the project's architecture. This includes assessing the organization and readability of the codebase, as well as the comprehensiveness and conciseness of documentation (e.g., GitHub README, inline comments) that enables others to understand and potentially reproduce or extend the solution.
+Key packages in `requirements.txt`:
+- `gradio` - Web interface
+- `langchain-google-genai` - Gemini integration
+- `langgraph` - Agent orchestration
+- `pydantic` - Data validation
+- `reportlab` - PDF generation (backup)
+- `pypdf` - PDF text extraction
 
-- **Innovative Gemini Integration **  
-  This criterion specifically assesses how effectively and creatively the Google Gemini API has been incorporated into the solution. Judges will look for novel applications, efficient use of Gemini's capabilities, and the impact it has on the project's functionality or user experience. You are welcome to use additional Google products.
+## 🏗️ Architecture
 
-- **Societal Impact & Novelty **  
-  This evaluates the project's potential to address a meaningful problem, contribute positively to society, or offer a genuinely innovative and unique solution. Judges will consider the originality of the idea, its potential real‑world applicability, and its ability to solve a challenge in a new or impactful way.
+The app consists of:
+- **Frontend**: Gradio web interface with cartoonish styling
+- **Backend Agent**: LangGraph workflow with 3 specialized nodes
+- **Email Service**: Gmail SMTP for comic delivery
+- **Asset Generation**: SVG-based character creation
 
+## 📖 Usage
 
+1. Enter your email address
+2. Describe the topic/idea for the comic
+3. Optionally attach a PDF for additional context
+4. Click "Generate my Cartoon comic now!"
+5. Watch real-time progress logs
+6. Receive comic via email and download directly
+
+## 🎨 Example Comics
+
+Here are some example comics generated by the app:
+
+### Newton's Law of Gravity
+![Newton Gravity Comic](images/newton_gravity.png)
+*Example comic explaining Newton's law of gravity through a conversation between Newton and a student*
+
+### Photosynthesis Process
+![Photosynthesis Comic](images/photosynthesis.png)
+*Educational comic explaining how plants convert sunlight into energy*
+
+### Pythagorean Theorem
+![Pythagorean Theorem Comic](images/pythagorean.png)
+*Fun visual explanation of the Pythagorean theorem with triangles and cats*
+
+These examples demonstrate how complex educational topics are transformed into engaging, memorable visual stories. The AI agent creates custom characters, dialogue, and backgrounds for each topic!
+
+**Note:** Screenshots will be added to the `images/` folder during final submission.
+
+## 🏅 Judging Criteria Alignment
+
+- **Technical Excellence**: Robust LangGraph agent with error handling and logging
+- **Architecture & Documentation**: Clean separation of concerns, comprehensive docs
+- **Gemini Integration**: Creative use of Gemini for multi-step comic generation
+- **Societal Impact**: Makes education accessible and fun through visual storytelling
