@@ -7,6 +7,7 @@ import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, END
 from pydantic import BaseModel, Field
+import uuid
 
 from dotenv import load_dotenv
 
@@ -30,16 +31,13 @@ class PanelCharacter(BaseModel):
     dialogue: str = Field(description="Text for the speech bubble")
 
 class Panel(BaseModel):
-    panel_id: int = Field(description="The panel number (always 1)")
     background_prompt: str = Field(description="Description of the background scene")
     characters: List[PanelCharacter] = Field(description="List of characters in this panel")
 
-class ComicScript(BaseModel):
-    panels: List[Panel] = Field(description="List containing exactly 1 panel for the full page")
-
 class AgentState(BaseModel):
     user_prompt: str
-    script: Optional[ComicScript] = None
+    folder_name: str
+    script: Optional[Panel] = None
     assets: Dict[str, str] = Field(default_factory=dict) # Map of character name -> SVG implementation key/code
     html_output: Optional[str] = None
 
@@ -56,7 +54,7 @@ def director_node(state: AgentState):
     print("--- Director Node ---")
     
     # Get the JSON schema from the Pydantic model to guide the LLM
-    schema_json = json.dumps(ComicScript.model_json_schema(), indent=2)
+    schema_json = json.dumps(Panel.model_json_schema(), indent=2)
 
     prompt_text = f"""
     You are a Comic Director. Generate a JSON script for a single full-page comic panel based on the user's request.
@@ -67,10 +65,10 @@ def director_node(state: AgentState):
     {schema_json}
     
     Constraints:
-    - Exactly 1 panel.
     - Max 3 possible characters in the scene.
     - Slots are strictly 'left', 'center', or 'right'.
     - The content should be dense enough to justify a full page.
+    - Keep dialogue strictly under 15 words to prevent overcrowding and text overlap.
     """
     
     response = json_llm.invoke(prompt_text)
@@ -82,11 +80,11 @@ def director_node(state: AgentState):
         
         data = json.loads(content)
         # Validate with Pydantic
-        script = ComicScript(**data)
+        script =  Panel(**data)
     except Exception as e:
         print(f"Error parsing JSON from Director: {e}")
         # Fallback empty script
-        script = ComicScript(panels=[])
+        script = Panel(background_prompt="", characters=[])
         
     # Return dict for state update
     return {"script": script}
@@ -107,8 +105,7 @@ def asset_generator_node(state: AgentState):
     
     # Identify unique characters
     unique_characters = {}
-    for panel in script.panels:
-        for char in panel.characters:
+    for char in script.characters:
             name = char.name
             if name not in existing_assets and name not in unique_characters:
                 unique_characters[name] = char.visual_desc
@@ -137,6 +134,10 @@ def asset_generator_node(state: AgentState):
             
         new_assets[name] = svg_code
         
+        # Save SVG to file
+        with open(os.path.join(state.folder_name, f"{name}.svg"), "w") as f:
+            f.write(svg_code)
+        
     # Merge
     updated_assets = {**existing_assets, **new_assets}
     return {"assets": updated_assets}
@@ -151,8 +152,7 @@ def parse_svg_dimensions(svg_code):
     height_re = re.search(r'height=["\']([^"\']+)["\']', svg_code)
     
     info = {
-        "aspect_ratio": "unknown (assume square)",
-        "viewBox": "0 0 100 100", # default
+        "aspect_ratio": "unknown",
     }
     
     if viewbox_re:
@@ -194,6 +194,7 @@ def compositor_node(state: AgentState):
     
     # Convert Pydantic model to dict for JSON serialization in prompt
     script_dict = script.model_dump()
+    print(asset_metadata)
     
     prompt_text = f"""
     You must create a single HTML file for a webcomic that consists of one large full-page panel.
@@ -215,9 +216,6 @@ def compositor_node(state: AgentState):
        
     2. **Character Placement**:
        - Use the 'slot' ('left', 'center', 'right') to position characters absolutely within the panel.
-       - 'Left' slot: left: 10%, width: 30%
-       - 'Right' slot: right: 10%, width: 30%
-       - 'Center' slot: left: 35%, width: 30%
        - If 'facing' is 'left', apply `transform: scaleX(-1)` to the SVG container.
        - RESPECT THE ASPECT RATIO provided in the asset metadata.
        
@@ -226,9 +224,13 @@ def compositor_node(state: AgentState):
        - Put the exact valid marker string (e.g. `__INSERT_SVG_NAME__`) inside the character container div.
        - The post-processing step will replace this marker with the actual SVG code.
        
-    4. **Dialogue**:
-       - Create large, readable speech bubbles near the characters.
-       - Use simple CSS for speech bubbles (oval white background, black border).
+    4. **Dialogue & Layout**:
+       - Create readable speech bubbles.
+       - CRITICAL: Place bubbles to avoid overlapping characters or other bubbles. 
+       - STRATEGY: Place bubbles in the empty space away from the center convergence. For example, if a character is on the Left, anchor the bubble to the top-left or left side. If Right, anchor top-right.
+       - Font Sizing: Use a smaller, concise font (e.g., 14px or 0.9rem) to ensures text fits inside the bubble. 
+       - Constrain bubble max-width to roughly 25-30% of the container width to avoid walls of text.
+       - Use simple CSS for speech bubbles (oval white background, black border, slight shadow).
        
     5. **Styling**:
        - Make it look clean and comic-like.
@@ -287,16 +289,25 @@ if __name__ == "__main__":
         
     print(f"Generating single-panel comic for: {user_topic}")
     
+    file_name = uuid.uuid4().hex
+    os.makedirs(file_name, exist_ok=True)
+
     # Initial state
-    inputs = AgentState(user_prompt=user_topic)
+    inputs = AgentState(user_prompt=user_topic, folder_name=file_name)
     
     result = app.invoke(inputs)
     
     output_html = result.get('html_output') if isinstance(result, dict) else result.html_output
     
-    output_filename = "output_single.html"
+    output_filename = os.path.join(file_name, "output_single.html")
     with open(output_filename, "w") as f:
         if output_html:
             f.write(output_html)
+
+    # Also save the script for debugging
+    if result.get('script'):
+        script_data = result['script'].model_dump() if hasattr(result['script'], 'model_dump') else result['script']
+        with open(os.path.join(file_name, "script.json"), "w") as f:
+            json.dump(script_data, f, indent=4)
         
     print(f"Comic generated! Open {output_filename} to view.")
