@@ -33,6 +33,8 @@ class PanelCharacter(BaseModel):
     visual_desc: str = Field(description="Visual description")
     slot: str = Field(description="Position in the panel: 'left' or 'right'")
     facing: str = Field(description="Facing direction: 'left' or 'right'")
+    pose: str = Field(description="Physical pose of the character (e.g., 'standing', 'pointing', 'sitting')")
+    expression: str = Field(description="Facial expression (e.g., 'happy', 'angry', 'surprised')")
     dialogue: str = Field(description="Text for the speech bubble")
 
 class Panel(BaseModel):
@@ -95,7 +97,7 @@ def director_node(state: AgentState):
     Constraints:
     - 3 panels exactly.
     - Max 2 characters per panel.
-    - Characters must be reused across panels if they are the same person.
+    - Characters must be reused across panels if they are the same person, but you MUST specify a unique 'pose' and 'expression' for each panel to match the story.
     - Slots are strictly 'left' or 'right'.
     - The layout will be 2 panels on top, 1 larger panel centered on the bottom. Plan your storytelling accordingly.
     """
@@ -133,60 +135,67 @@ def asset_generator_node(state: AgentState):
     script = state.script
     existing_assets = state.assets
     
-    # Identify unique characters
-    unique_characters = {}
-    for panel in script.panels:
-        for char in panel.characters:
-            name = char.name
-            if name not in existing_assets and name not in unique_characters:
-                unique_characters[name] = char.visual_desc
-    
+    # Process every character instance in every panel
     guidelines = load_guidelines()
     new_assets = {}
     
-    for name, desc in unique_characters.items():
-        print(f"Generating asset for: {name}")
-        svg_prompt = f"""
-        Generate an SVG for a character named "{name}".
-        
-        Visual Description: {desc}
-        
-        Guidelines:
-        {guidelines}
-        
-        Output ONLY the raw <svg>...</svg> code. No markdown.
-        """
-        response = llm.invoke(svg_prompt)
-        svg_code = response.content.strip()
-        
-        # Cleanup code blocks
-        if "```xml" in svg_code:
-            svg_code = svg_code.replace("```xml", "").replace("```", "")
-        if "```svg" in svg_code:
-            svg_code = svg_code.replace("```svg", "").replace("```", "")
-        if "```" in svg_code:
-             svg_code = svg_code.replace("```", "")
-
-        # Save SVG
-        char_safe_name = name.lower().replace(' ', '_')
-        svg_filename = f"{char_safe_name}.svg"
-        svg_path = os.path.join(images_dir, svg_filename)
-        
-        with open(svg_path, "w") as f:
-            f.write(svg_code)
+    for p_idx, panel in enumerate(script.panels):
+        for c_idx, char in enumerate(panel.characters):
+            # Unique ID for this specific instance of the character
+            instance_id = f"{p_idx}_{c_idx}"
             
-        # Convert to PNG
-        png_filename = f"{char_safe_name}.png"
-        png_path = os.path.join(images_dir, png_filename)
-        
-        if svg_to_png(svg_code, png_path):
-            print(f"Saved PNG to {png_path}")
-            # Store RELATIVE path for HTML (images/filename.png)
-            new_assets[name] = f"images/{png_filename}"
-        else:
-            print(f"Failed to convert {name}, falling back to placeholder.")
-            new_assets[name] = "https://placehold.co/400x800/FF0000/FFFFFF/png?text=Error"
+            # Construct a prompt that includes pose and expression
+            print(f"Generating asset for: {char.name} (Panel {p_idx}, Slot {char.slot})")
+            svg_prompt = f"""
+            Generate an SVG for a character named "{char.name}".
+            
+            Visual Description: {char.visual_desc}
+            Pose: {char.pose}
+            Expression: {char.expression}
+            
+            Guidelines:
+            {guidelines}
+            
+            Output ONLY the raw <svg>...</svg> code. No markdown.
+            """
+            
+            # Check if we already have this exact asset (unlikely with dynamic poses, but good for caching if we implemented it)
+            # For now, always generate to ensure pose matching
+            
+            response = llm.invoke(svg_prompt)
+            svg_code = response.content.strip()
+            
+            # Cleanup code blocks
+            if "```xml" in svg_code:
+                svg_code = svg_code.replace("```xml", "").replace("```", "")
+            if "```svg" in svg_code:
+                svg_code = svg_code.replace("```svg", "").replace("```", "")
+            if "```" in svg_code:
+                 svg_code = svg_code.replace("```", "")
+    
+            # Save SVG
+            char_safe_name = char.name.lower().replace(' ', '_')
+            svg_filename = f"{char_safe_name}_p{p_idx}_{c_idx}.svg"
+            svg_path = os.path.join(images_dir, svg_filename)
+            
+            with open(svg_path, "w") as f:
+                f.write(svg_code)
+                
+            # Convert to PNG
+            png_filename = f"{char_safe_name}_p{p_idx}_{c_idx}.png"
+            png_path = os.path.join(images_dir, png_filename)
+            
+            if svg_to_png(svg_code, png_path):
+                print(f"Saved PNG to {png_path}")
+                # Store relative path keyed by instance ID
+                new_assets[instance_id] = f"images/{png_filename}"
+            else:
+                print(f"Failed to convert {char.name}, falling back to placeholder.")
+                new_assets[instance_id] = "https://placehold.co/400x800/FF0000/FFFFFF/png?text=Error"
 
+    # We don't really need to merge with existing_assets in the same way, 
+    # but let's keep it if there were global assets. 
+    # Key change: keys are now instance IDs, not names.
     updated_assets = {**existing_assets, **new_assets}
     return {"assets": updated_assets}
 
@@ -204,16 +213,17 @@ def compositor_node(state: AgentState):
     # Transform script data into the format expected by the template
     panels_data = []
     
-    for panel in script.panels:
+    for p_idx, panel in enumerate(script.panels):
         panel_obj = {
             "bg_color": "#f9f9f9", # Default background
             "characters": []
         }
         
-        for char in panel.characters:
+        for c_idx, char in enumerate(panel.characters):
+            instance_id = f"{p_idx}_{c_idx}"
             char_obj = {
                 "name": char.name,
-                "image": assets.get(char.name, ""), # Should be relative path now
+                "image": assets.get(instance_id, ""), # Use instance ID
                 "slot": char.slot,
                 "facing": char.facing,
                 "dialogue": wrap_text(char.dialogue)
