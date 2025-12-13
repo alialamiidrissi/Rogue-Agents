@@ -120,6 +120,7 @@ def director_node(state: AgentState):
 def asset_generator_node(state: AgentState):
     """
     Generates SVGs, converts them to PNGs, and stores paths.
+    Now implements caching to reuse character assets for consistency.
     """
     print(f"--- Asset Generator Node ({state.run_id}) ---")
     
@@ -139,63 +140,98 @@ def asset_generator_node(state: AgentState):
     guidelines = load_guidelines()
     new_assets = {}
     
+    # Cache for character visual consistency: name -> raw_svg_str
+    character_svg_cache = {}
+    
     for p_idx, panel in enumerate(script.panels):
         for c_idx, char in enumerate(panel.characters):
             # Unique ID for this specific instance of the character
             instance_id = f"{p_idx}_{c_idx}"
             
-            # Construct a prompt that includes pose and expression
             print(f"Generating asset for: {char.name} (Panel {p_idx}, Slot {char.slot})")
-            svg_prompt = f"""
-            Generate an SVG for a character named "{char.name}".
             
-            Visual Description: {char.visual_desc}
-            Pose: {char.pose}
-            Expression: {char.expression}
-            
-            Guidelines:
-            {guidelines}
-            
-            Output ONLY the raw <svg>...</svg> code. No markdown.
-            """
-            
-            # Check if we already have this exact asset (unlikely with dynamic poses, but good for caching if we implemented it)
-            # For now, always generate to ensure pose matching
-            
-            response = llm.invoke(svg_prompt)
-            svg_code = response.content.strip()
-            
-            # Cleanup code blocks
-            if "```xml" in svg_code:
-                svg_code = svg_code.replace("```xml", "").replace("```", "")
-            if "```svg" in svg_code:
-                svg_code = svg_code.replace("```svg", "").replace("```", "")
-            if "```" in svg_code:
-                 svg_code = svg_code.replace("```", "")
-    
-            # Save SVG
-            char_safe_name = char.name.lower().replace(' ', '_')
-            svg_filename = f"{char_safe_name}_p{p_idx}_{c_idx}.svg"
-            svg_path = os.path.join(images_dir, svg_filename)
-            
-            with open(svg_path, "w") as f:
-                f.write(svg_code)
+            # Check if we have a base model for this character
+            if char.name in character_svg_cache:
+                print(f"   -> Using cached base for {char.name}")
+                base_svg = character_svg_cache[char.name]
                 
-            # Convert to PNG
-            png_filename = f"{char_safe_name}_p{p_idx}_{c_idx}.png"
-            png_path = os.path.join(images_dir, png_filename)
-            
-            if svg_to_png(svg_code, png_path):
-                print(f"Saved PNG to {png_path}")
-                # Store relative path keyed by instance ID
-                new_assets[instance_id] = f"images/{png_filename}"
+                svg_prompt = f"""
+                You have the SVG code for a character named "{char.name}".
+                
+                Current Base SVG:
+                {base_svg}
+                
+                Task: Modify this EXACT SVG code to match a new scene.
+                - New Pose: {char.pose}
+                - New Expression: {char.expression}
+                
+                CRITICAL INSTRUCTIONS:
+                1. KEEP visual identity identical (same colors, same clothes, same features).
+                2. ONLY adjust the paths for limbs and face to match the new pose/expression.
+                3. Output the FULL, valid modified SVG code.
+                4. Do NOT output markdown code blocks, just the XML.
+                """
             else:
-                print(f"Failed to convert {char.name}, falling back to placeholder.")
-                new_assets[instance_id] = "https://placehold.co/400x800/FF0000/FFFFFF/png?text=Error"
+                print(f"   -> Creating new base for {char.name}")
+                svg_prompt = f"""
+                Generate an SVG for a character named "{char.name}".
+                
+                Visual Description: {char.visual_desc}
+                Pose: {char.pose}
+                Expression: {char.expression}
+                
+                Guidelines:
+                {guidelines}
+                
+                Output ONLY the raw <svg>...</svg> code. No markdown.
+                """
+            
+            try:
+                # Generate/Modify
+                response = llm.invoke(svg_prompt)
+                svg_code = response.content.strip()
+                
+                # Cleanup code blocks
+                if "```xml" in svg_code:
+                    svg_code = svg_code.replace("```xml", "").replace("```", "")
+                if "```svg" in svg_code:
+                    svg_code = svg_code.replace("```svg", "").replace("```", "")
+                if "```" in svg_code:
+                     svg_code = svg_code.replace("```", "")
+                     
+                svg_code = svg_code.strip()
+                
+                # Basic validation
+                if not svg_code.startswith("<svg") and not svg_code.startswith("<?xml"):
+                    print(f"Warning: Output might not be valid SVG for {char.name}")
 
-    # We don't really need to merge with existing_assets in the same way, 
-    # but let's keep it if there were global assets. 
-    # Key change: keys are now instance IDs, not names.
+                # Save to cache if it's the first time
+                if char.name not in character_svg_cache:
+                    character_svg_cache[char.name] = svg_code
+        
+                # Save SVG File
+                char_safe_name = char.name.lower().replace(' ', '_')
+                svg_filename = f"{char_safe_name}_p{p_idx}_{c_idx}.svg"
+                svg_path = os.path.join(images_dir, svg_filename)
+                
+                with open(svg_path, "w") as f:
+                    f.write(svg_code)
+                    
+                # Convert to PNG
+                png_filename = f"{char_safe_name}_p{p_idx}_{c_idx}.png"
+                png_path = os.path.join(images_dir, png_filename)
+                
+                if svg_to_png(svg_code, png_path):
+                    print(f"   -> Saved PNG to {png_path}")
+                    new_assets[instance_id] = f"images/{png_filename}"
+                else:
+                    print(f"   -> Failed to convert {char.name} to PNG.")
+                    new_assets[instance_id] = "https://placehold.co/400x800/FF0000/FFFFFF/png?text=Error"
+            
+            except Exception as e:
+                print(f"Error processing {char.name}: {e}")
+                new_assets[instance_id] = "https://placehold.co/400x800/FF0000/FFFFFF/png?text=GenError"
+
     updated_assets = {**existing_assets, **new_assets}
     return {"assets": updated_assets}
 
