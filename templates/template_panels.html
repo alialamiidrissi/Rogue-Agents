@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comic Template V2</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f4;
+            --panel-border: 4px solid #000;
+            --panel-gap: 15px;
+            --bubble-bg: #fff;
+            --bubble-border: 2px solid #000;
+        }
+
+        body {
+            background: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+        }
+
+        /* COMIC PAGE LAYOUT */
+        .comic-page {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            /* 2 Columns */
+            gap: var(--panel-gap);
+            width: 1000px;
+            /* Adjusted width for 2 columns */
+            max-width: 95vw;
+            margin: 0 auto;
+            /* Center the grid container */
+        }
+
+        /* PANELS */
+        .panel {
+            aspect-ratio: 1 / 1;
+            /* Square panels */
+            background: white;
+            border: var(--panel-border);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: flex-end;
+            /* Align characters to bottom */
+            justify-content: center;
+        }
+
+        /* Center the 3rd panel in the second row */
+        .panel:nth-child(3) {
+            grid-column: 1 / -1;
+            width: 50%;
+            /* Keep same visual size as others (1 of 2 columns) */
+            justify-self: center;
+            /* Since the grid gap applies, we don't need margin-top */
+        }
+
+        .panel-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            object-fit: cover;
+            /* Placeholder background color if image fails */
+            background-color: #eee;
+        }
+
+        /* CHARACTERS */
+        .character-layer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            /* Let dialogue be clickable if needed */
+            z-index: 1;
+        }
+
+        .character {
+            position: absolute;
+            bottom: 0;
+            height: 75%;
+            /* Slightly smaller relative to panel to give more headroom for bubbles */
+            width: auto;
+            max-width: 40%;
+            /* Prevent overlapping too much */
+        }
+
+        .char-left {
+            left: 2%;
+            /* Moved closer to edge to increase gap between characters */
+        }
+
+        .char-right {
+            right: 2%;
+            /* Moved closer to edge to increase gap between characters */
+            transform: scaleX(-1);
+            /* Default face left for right slot */
+        }
+
+        /* Optional: specific override if data says otherwise */
+        .facing-right {
+            transform: scaleX(1) !important;
+        }
+
+        .facing-left {
+            transform: scaleX(-1) !important;
+        }
+
+
+        /* DIALOGUE BUBBLES */
+        .dialogue-layer {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .bubble {
+            position: absolute;
+            background: var(--bubble-bg);
+            border: var(--bubble-border);
+            border-radius: 15px;
+            /* Slightly tighter radius */
+            padding: 8px 10px;
+            max-width: 45%;
+            /* Restrict width to ensure separation */
+            font-size: 11px;
+            /* Smaller font */
+            line-height: 1.3;
+            text-align: center;
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+            white-space: normal;
+            /* Ensure text wrap */
+            overflow-wrap: break-word;
+        }
+
+        /* Bubble tails - simple CSS triangles */
+        .bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            border-width: 8px 8px 0;
+            border-style: solid;
+            border-color: var(--bubble-border) transparent;
+            display: block;
+            width: 0;
+        }
+
+        /* Interior color to cover border */
+        .bubble::before {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            border-width: 7px 7px 0;
+            border-style: solid;
+            border-color: var(--bubble-bg) transparent;
+            display: block;
+            width: 0;
+            z-index: 1;
+        }
+
+        /* Orientations for tails */
+        .bubble-left {
+            top: 5%;
+            left: 2%;
+        }
+
+        .bubble-left::after,
+        .bubble-left::before {
+            left: 15px;
+        }
+
+        .bubble-right {
+            top: 5%;
+            right: 2%;
+        }
+
+        .bubble-right::after,
+        .bubble-right::before {
+            right: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="comic-page">
+        {% for panel in panels %}
+        <div class="panel" id="panel-{{ loop.index }}">
+            <!-- Background -->
+            {% if panel.background_image %}
+            <img src="{{ panel.background_image }}" class="panel-bg" alt="Background">
+            {% else %}
+            <div class="panel-bg" style="background-color: {{ panel.bg_color | default('#e0e0e0') }}"></div>
+            {% endif %}
+
+            <!-- Characters -->
+            <div class="character-layer">
+                {% for char in panel.characters %}
+                {% if char.image %}
+                <img src="{{ char.image }}"
+                    class="character {% if char.slot == 'left' %}char-left{% else %}char-right{% endif %} {% if char.facing %}facing-{{ char.facing }}{% endif %}"
+                    alt="{{ char.name }}">
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Dialogue -->
+            <div class="dialogue-layer">
+                {% for char in panel.characters %}
+                {% if char.dialogue %}
+                <div class="bubble {% if char.slot == 'left' %}bubble-left{% else %}bubble-right{% endif %}">
+                    {{ char.dialogue }}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</body>
+
+</html>
