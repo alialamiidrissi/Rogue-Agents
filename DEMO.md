@@ -15,37 +15,24 @@ This demo illustrates the complete workflow of generating a custom educational c
 ---
 
 📺 **Demo Video Link:**
-[To be added - Create a 3-5 minute video showing the app in action]
+[Cartoon Generator Demo Video](https://www.loom.com/share/05200ac3c68a4a4a98c7d0fd1dbdd40c)
 
-### Proposed Timestamps
+### Video Timestamps
 
-- **00:00–00:30** — Introduction & Educational Problem
-  - Show the app interface and explain the concept
-  - Demonstrate the kid-friendly UI with example comic preview
-  - Highlight the educational impact goal
+- **0:00–1:00** — Demo: Live comic generation walkthrough
+  - Show the Gradio interface and user interaction
+  - Demonstrate real-time comic creation process
+  - Highlight the educational comic output
 
-- **00:30–01:30** — User Input & Planning Phase
-  - Enter email and describe a topic (e.g., "Newton explaining gravity")
-  - Show real-time console logging as Director Node analyzes input
-  - Display the structured JSON comic script generation
-  - Explain how LangGraph orchestrates the workflow
+- **1:00–2:00** — Demo: Deep dive in architecture
+  - Explain the LangGraph agent workflow
+  - Show Director, Asset Generator, and Compositor nodes
+  - Demonstrate the structured JSON comic script generation
 
-- **01:30–02:30** — Tool Calls & Creative Generation
-  - Demonstrate Asset Generator Node creating SVG characters
-  - Show Gemini API calls for character design and HTML composition
-  - Display progress logs updating in real-time
-  - Highlight the creative AI capabilities
-
-- **02:30–03:30** — Final Output & Delivery
-  - Show completed HTML comic rendering
-  - Demonstrate email delivery with attachment
-  - Display download functionality
-  - Discuss scalability and real-world applications
-
-- **03:30–04:00** — Edge Cases & Error Handling
-  - Test with invalid inputs and missing API keys
-  - Show error recovery and user feedback
-  - Demonstrate PDF integration for additional context
+- **2:00–3:00** — Show Gemini usage and conclude
+  - Display Gemini API calls for character design and HTML composition
+  - Highlight creative AI capabilities and SVG generation
+  - Discuss scalability, real-world applications, and educational impact
 
 ## Demo Script
 

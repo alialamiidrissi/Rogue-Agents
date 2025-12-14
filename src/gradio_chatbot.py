@@ -109,7 +109,7 @@ def generate_comic_html(idea, reuse_last_run=False):
         if result.returncode == 0:
             html_file = None
             for line in reversed(stdout_logs):
-                match = re.search(r'Comic generated! Open (\.\./runs/[\w\-]+/index.html) to view.', line)
+                match = re.search(r'Comic generated! Open (\./runs/[\w\-]+/index.html) to view.', line)
                 if match:
                     html_file = match.group(1)
                     break
@@ -212,7 +212,7 @@ def process_idea(idea, pdf_file, email, reuse_last_run):
 
     if html_content:
         send_email(email, html_content)
-        iframe_html = f"<iframe srcdoc='{html_content.replace(chr(39), '&#39;')}' width='100%' height='600' style='border:1px solid #ccc;'></iframe>"
+        iframe_html = f"<iframe srcdoc='{html_content.replace(chr(39), '&#39;')}' width='100%' height='1000' style='border:1px solid #ccc;'></iframe>"
         graph_img = f"<img src='{graph_data_url}' style='max-width:100%; height:auto;' />" if graph_data_url else ""
         if zip_path:
              return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=zip_path, visible=True, label="📥 Download Full Run (ZIP)"), iframe_html, graph_img
@@ -230,7 +230,7 @@ with gr.Blocks(title="🎨 Cartoon Generator for Learning anything!") as demo:
         try:
             with open("output.html", "r") as f:
                 example_html = f.read()
-            gr.HTML(f"<iframe srcdoc='{example_html.replace(chr(39), '&#39;')}' width='100%' height='600' style='border:1px solid #ccc;'></iframe>")
+            gr.HTML(f"<iframe srcdoc='{example_html.replace(chr(39), '&#39;')}' width='100%' height='1000' style='border:1px solid #ccc;'></iframe>")
         except:
             gr.Markdown("Example comic not available yet. Generate one first!")
 
