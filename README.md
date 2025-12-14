@@ -13,7 +13,7 @@ Welcome to **Cartoon Generator for Learning Anything**! This innovative app uses
 ## 🚀 Features
 
 - 🤖 **LangGraph Agent**: Orchestrates comic creation with Director, Asset Generator, and Compositor nodes
-- 🎨 **Gemini Integration**: Uses Google Gemini 2.5 Flash for creative script writing and SVG generation
+- 🎨 **OpenRouter Integration**: Uses DeepSeek R1 (free model) via OpenRouter for creative script writing and SVG generation
 - 📧 **Email System**: Automated delivery using Gmail SMTP
 - 🌈 **Kid-Friendly UI**: Cartoonish design with animations and emojis
 - 📖 **Example Comics**: Built-in preview of generated content
@@ -22,7 +22,7 @@ Welcome to **Cartoon Generator for Learning Anything**! This innovative app uses
 
 ### Prerequisites
 - Python 3.10+
-- Google Gemini API key (get from [Google AI Studio](https://makersuite.google.com/app/apikey))
+- OpenRouter API key (get from [OpenRouter](https://openrouter.ai/))
 
 ### Installation
 
@@ -41,7 +41,7 @@ Welcome to **Cartoon Generator for Learning Anything**! This innovative app uses
    - Copy `.env.example` to `.env` (or create `.env`)
    - Add your API keys:
      ```
-     GOOGLE_API_KEY=your_gemini_api_key_here
+     OPENAI_API_KEY=your_openrouter_api_key_here
      senderEmail=your_sender_email@gmail.com
      senderPassword="your_gmail_app_password"
      ```
@@ -60,7 +60,7 @@ Welcome to **Cartoon Generator for Learning Anything**! This innovative app uses
 
 Key packages in `requirements.txt`:
 - `gradio` - Web interface
-- `langchain-google-genai` - Gemini integration
+- `langchain-openai` - OpenRouter/OpenAI integration
 - `langgraph` - Agent orchestration
 - `pydantic` - Data validation
 - `reportlab` - PDF generation (backup)
@@ -107,5 +107,5 @@ These examples demonstrate how complex educational topics are transformed into e
 
 - **Technical Excellence**: Robust LangGraph agent with error handling and logging
 - **Architecture & Documentation**: Clean separation of concerns, comprehensive docs
-- **Gemini Integration**: Creative use of Gemini for multi-step comic generation
+- **OpenRouter Integration**: Creative use of DeepSeek R1 (free model) via OpenRouter for multi-step comic generation
 - **Societal Impact**: Makes education accessible and fun through visual storytelling

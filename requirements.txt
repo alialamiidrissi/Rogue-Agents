@@ -1,9 +1,10 @@
-gradio>=6.0.0
-langchain-google-genai>=4.0.0
+gradio>=4.0.0,<5.0.0
+langchain-openai==0.1.20
+langchain-core==0.2.40
 pydantic>=2.0.0
-langgraph>=1.0.0
+langgraph>=0.1.0,<1.0.0
 python-dotenv>=1.0.0
 pypdf>=4.0.0
 reportlab>=4.0.0
+cairosvg>=2.7.0
 jinja2
-cairosvg

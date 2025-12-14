@@ -44,6 +44,10 @@
             position: relative;
             overflow: hidden;
             box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: flex-end;
+            /* Align characters to bottom */
+            justify-content: center;
         }
 
         /* Center the 3rd panel in the second row */
@@ -67,57 +71,37 @@
             background-color: #eee;
         }
 
-        /* LANDSCAPE ELEMENTS */
-        .landscape-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        .landscape-element {
-            position: absolute;
-            width: auto;
-            height: auto;
-            max-width: 30%;
-            max-height: 30%;
-        }
-
-        .landscape-small {
-            max-width: 20%;
-            max-height: 20%;
-        }
-
-        .landscape-medium {
-            max-width: 30%;
-            max-height: 30%;
-        }
-
-        .landscape-large {
-            max-width: 40%;
-            max-height: 40%;
-        }
-
         /* CHARACTERS */
         .character-layer {
             position: absolute;
-            top: 0;
-            left: 0;
+            bottom: 0;
             width: 100%;
             height: 100%;
             pointer-events: none;
             /* Let dialogue be clickable if needed */
-            z-index: 2;
+            z-index: 1;
         }
 
         .character {
             position: absolute;
+            bottom: 0;
+            height: 75%;
+            /* Slightly smaller relative to panel to give more headroom for bubbles */
             width: auto;
-            height: 40%;
-            /* Smaller for grid positioning */
-            max-width: 25%;
+            max-width: 40%;
+            /* Prevent overlapping too much */
+        }
+
+        .char-left {
+            left: 2%;
+            /* Moved closer to edge to increase gap between characters */
+        }
+
+        .char-right {
+            right: 2%;
+            /* Moved closer to edge to increase gap between characters */
+            transform: scaleX(-1);
+            /* Default face left for right slot */
         }
 
         /* Optional: specific override if data says otherwise */
@@ -127,39 +111,6 @@
 
         .facing-left {
             transform: scaleX(-1) !important;
-        }
-
-        /* ELEMENTS */
-        .element-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 3;
-        }
-
-        .panel-element {
-            position: absolute;
-            width: auto;
-            height: auto;
-            max-width: 25%;
-            max-height: 25%;
-        }
-
-        .element-small {
-            max-width: 15%;
-            max-height: 15%;
-        }
-
-        .element-medium {
-            max-width: 20%;
-            max-height: 20%;
-        }
-
-        .element-large {
-            max-width: 25%;
-            max-height: 25%;
         }
 
 
@@ -186,9 +137,12 @@
             line-height: 1.3;
             text-align: center;
             box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
-            white-space: pre-line;
+            white-space: normal;
             /* Ensure text wrap */
             overflow-wrap: break-word;
+
+            /* ADD THIS LINE BELOW */
+            white-space: pre-line;
         }
 
         /* Bubble tails - simple CSS triangles */
@@ -242,62 +196,150 @@
 <body>
 
     <div class="comic-page">
-        {% for panel in panels %}
-        <div class="panel" id="panel-{{ loop.index }}">
+        
+        <div class="panel" id="panel-1">
             <!-- Background -->
-            {% if panel.background_layer.color %}
-            <div class="panel-bg" style="background-color: {{ panel.background_layer.color }}"></div>
-            {% else %}
-            <div class="panel-bg" style="background-color: #e0e0e0"></div>
-            {% endif %}
-
-            <!-- Landscape Elements -->
-            <div class="landscape-layer">
-                {% for landscape in panel.landscape_elements %}
-                {% if landscape.image %}
-                <img src="{{ landscape.image }}" class="landscape-element landscape-{{ landscape.size }}"
-                    style="left: {{ (landscape.position.x / 8 * 100) }}%; bottom: {{ (landscape.position.y / 8 * 100) }}%;"
-                    alt="{{ landscape.type }}">
-                {% endif %}
-                {% endfor %}
-            </div>
+            
+            <div class="panel-bg" style="background-color: #f9f9f9"></div>
+            
 
             <!-- Characters -->
             <div class="character-layer">
-                {% for char in panel.characters %}
-                {% if char.image %}
-                <img src="{{ char.image }}"
-                    class="character {% if char.facing == 'right' %}facing-right{% else %}facing-left{% endif %}"
-                    style="left: {{ (char.position.x / 8 * 100) }}%; bottom: {{ (char.position.y / 8 * 100) }}%;"
-                    alt="{{ char.name }}">
-                {% endif %}
-                {% endfor %}
-            </div>
-
-            <!-- Panel Elements -->
-            <div class="element-layer">
-                {% for element in panel.elements %}
-                {% if element.image %}
-                <img src="{{ element.image }}" class="panel-element element-{{ element.size }}"
-                    style="left: {{ (element.position.x / 8 * 100) }}%; bottom: {{ (element.position.y / 8 * 100) }}%;"
-                    alt="{{ element.content }}">
-                {% endif %}
-                {% endfor %}
+                
+                
+                <img src="images/carl_p0_0.png"
+                    class="character char-left facing-right"
+                    alt="Carl">
+                
+                
+                
+                <img src="images/molly_p0_1.png"
+                    class="character char-right facing-left"
+                    alt="Molly">
+                
+                
             </div>
 
             <!-- Dialogue -->
             <div class="dialogue-layer">
-                {% for char in panel.characters %}
-                {% if char.dialogue %}
-                <div class="bubble"
-                    style="left: {{ (char.position.x / 8 * 100) }}%; top: {{ (100 - (char.position.y / 8 * 100) - 20) }}%;">
-                    {{ char.dialogue }}
+                
+                
+                <div class="bubble bubble-left">
+                    Ugh, another geometry
+problem! What even *is*
+this 'Pythagorean
+Theorem'?
                 </div>
-                {% endif %}
-                {% endfor %}
+                
+                
+                
+                <div class="bubble bubble-right">
+                    It's not so bad, Carl!
+It's all about right
+triangles.
+                </div>
+                
+                
             </div>
         </div>
-        {% endfor %}
+        
+        <div class="panel" id="panel-2">
+            <!-- Background -->
+            
+            <div class="panel-bg" style="background-color: #f9f9f9"></div>
+            
+
+            <!-- Characters -->
+            <div class="character-layer">
+                
+                
+                <img src="images/molly_p1_0.png"
+                    class="character char-left facing-right"
+                    alt="Molly">
+                
+                
+                
+                <img src="images/carl_p1_1.png"
+                    class="character char-right facing-left"
+                    alt="Carl">
+                
+                
+            </div>
+
+            <!-- Dialogue -->
+            <div class="dialogue-layer">
+                
+                
+                <div class="bubble bubble-left">
+                    See? For any right
+triangle, the square of
+the hypotenuse (c) is
+equal to the sum of the
+squares of the other two
+sides (a and b)!
+                </div>
+                
+                
+                
+                <div class="bubble bubble-right">
+                    So, a side squared plus
+another side squared
+equals... the long side
+squared?
+                </div>
+                
+                
+            </div>
+        </div>
+        
+        <div class="panel" id="panel-3">
+            <!-- Background -->
+            
+            <div class="panel-bg" style="background-color: #f9f9f9"></div>
+            
+
+            <!-- Characters -->
+            <div class="character-layer">
+                
+                
+                <img src="images/carl_p2_0.png"
+                    class="character char-left facing-right"
+                    alt="Carl">
+                
+                
+                
+                <img src="images/molly_p2_1.png"
+                    class="character char-right facing-left"
+                    alt="Molly">
+                
+                
+            </div>
+
+            <!-- Dialogue -->
+            <div class="dialogue-layer">
+                
+                
+                <div class="bubble bubble-left">
+                    I get it! It's how we
+figure out how long a
+ladder needs to be to
+reach a window, or the
+slope of a roof! It's
+practical!
+                </div>
+                
+                
+                
+                <div class="bubble bubble-right">
+                    Exactly! Now you're
+thinking with geometry,
+Carl!
+                </div>
+                
+                
+            </div>
+        </div>
+        
     </div>
 
 </body>

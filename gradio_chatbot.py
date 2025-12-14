@@ -77,6 +77,7 @@ def generate_comic_html(idea, reuse_last_run=False):
     """Call the agent to generate HTML"""
     global LAST_RUN_HTML_PATH
     logs = []
+    html_file = None  # Initialize html_file
 
     if reuse_last_run and LAST_RUN_HTML_PATH and os.path.exists(LAST_RUN_HTML_PATH):
         logs.append(f"♻️ Fast Mode: Reusing last run from {LAST_RUN_HTML_PATH}")
@@ -182,23 +183,25 @@ def zip_run_folder(html_path):
 def process_idea(idea, pdf_file, email, reuse_last_run):
     print(f"Processing idea: {idea}, email: {email}, reuse_last_run: {reuse_last_run}")
     if not email:
-        return "", "❌ Please enter your email!", gr.update(visible=False)
+        return "", "❌ Please enter your email!", gr.update(visible=False), ""
     html_content, logs, html_file = generate_comic_html(idea, reuse_last_run)
     print("HTML content generated:", html_content is not None)
     print("Logs:", logs)
-    
+
     zip_path = None
     if html_file:
          zip_path = zip_run_folder(html_file)
 
     if html_content:
         send_email(email, html_content)
+        # Create inline preview
+        inline_html = f"<iframe srcdoc='{html_content.replace(chr(39), '&#39;')}' width='100%' height='600' style='border:1px solid #ccc;'></iframe>"
         if zip_path:
-             return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=zip_path, visible=True, label="📥 Download Full Run (ZIP)")
+             return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=zip_path, visible=True, label="📥 Download Full Run (ZIP)"), gr.update(value=inline_html, visible=True)
         else:
-             return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=html_file, visible=True, label="📥 Download HTML Only") # Fallback
+             return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=html_file, visible=True, label="📥 Download HTML Only"), gr.update(value=inline_html, visible=True) # Fallback
     else:
-        return "❌ Failed to generate comic. Please try again.", logs, gr.update(visible=False)
+        return "❌ Failed to generate comic. Please try again.", logs, gr.update(visible=False), gr.update(visible=False)
 
 with gr.Blocks(title="🎨 Cartoon Generator for Learning anything!") as demo:
     gr.Markdown("# 🎨 Cartoon Generator for Learning anything! 📚\nTurn your ideas into fun cartoon novels! 🌟")
@@ -210,6 +213,8 @@ with gr.Blocks(title="🎨 Cartoon Generator for Learning anything!") as demo:
             gr.HTML(f"<iframe srcdoc='{example_html.replace(chr(39), '&#39;')}' width='100%' height='600' style='border:1px solid #ccc;'></iframe>")
         except:
             gr.Markdown("Example comic not available yet. Generate one first!")
+
+    generated_result = gr.HTML(visible=False, label="🎨 Your Generated Comic")
 
     email = gr.Textbox(label="📧 Your Email", placeholder="Enter your email to receive the comic")
     idea = gr.TextArea(label="💡 Your Idea", placeholder="Describe your idea for a cartoon comic!", lines=5)
@@ -235,7 +240,7 @@ with gr.Blocks(title="🎨 Cartoon Generator for Learning anything!") as demo:
     ).then(
         process_idea,
         [idea, pdf_file, email, reuse_last],
-        [output, logs, download],
+        [output, logs, download, generated_result],
         show_progress=True,
     ).then(
         lambda: (

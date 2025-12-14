@@ -8,7 +8,7 @@ import uuid
 import argparse
 from jinja2 import Environment, FileSystemLoader
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Configuration ---
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "tngtech/deepseek-r1t2-chimera:free"  # Free DeepSeek R1 model on OpenRouter
 TEMPLATE_DIR = "templates"
 TEMPLATE_NAME = "template_panels.html"
 BASE_OUTPUT_DIR = "runs"
@@ -33,10 +33,20 @@ class Character(BaseModel):
     )
 
 
+class GridPosition(BaseModel):
+    x: int = Field(description="X coordinate (0-8) in 9x9 grid", ge=0, le=8)
+    y: int = Field(description="Y coordinate (0-8) in 9x9 grid", ge=0, le=8)
+
+class PanelElement(BaseModel):
+    type: str = Field(description="Type of element: 'equation', 'icon', 'symbol', 'text'")
+    content: str = Field(description="The actual content to render")
+    position: GridPosition = Field(description="Position in 9x9 grid")
+    size: str = Field(description="Size category: 'small', 'medium', 'large'")
+
 class PanelCharacter(BaseModel):
     name: str = Field(description="Name of the character")
     visual_desc: str = Field(description="Visual description")
-    slot: str = Field(description="Position in the panel: 'left' or 'right'")
+    position: GridPosition = Field(description="Position in 9x9 grid")
     facing: str = Field(description="Facing direction: 'left' or 'right'")
     pose: str = Field(
         description="Physical pose of the character (e.g., 'standing', 'pointing', 'sitting')"
@@ -47,16 +57,41 @@ class PanelCharacter(BaseModel):
     dialogue: str = Field(description="Text for the speech bubble")
 
 
+class BackgroundLayer(BaseModel):
+    type: str = Field(description="Type of background: 'sky', 'indoor', 'space', 'abstract'")
+    color: str = Field(description="Base color for the background")
+    gradient: Optional[str] = Field(description="Optional gradient specification")
+
+class LandscapeElement(BaseModel):
+    type: str = Field(description="Type of element: 'mountain', 'hill', 'sun', 'tree', 'building', 'classroom', 'desk', 'blackboard', etc.")
+    position: GridPosition = Field(description="Position in 9x9 grid")
+    size: str = Field(description="Size: 'small', 'medium', 'large'")
+    details: str = Field(description="Specific details about appearance")
+
 class Panel(BaseModel):
     panel_id: int = Field(description="The panel number")
-    background_prompt: str = Field(description="Description of the background scene")
+    concept: str = Field(description="The specific concept explained in this panel")
+    background_layer: BackgroundLayer = Field(description="Background layer specification")
+    landscape_elements: List[LandscapeElement] = Field(
+        default_factory=list,
+        description="Landscape elements like mountains, buildings, furniture"
+    )
     characters: List[PanelCharacter] = Field(
         description="List of characters in this panel"
     )
+    elements: List[PanelElement] = Field(
+        default_factory=list,
+        description="Additional elements like equations, icons, symbols to render in the panel"
+    )
 
+
+class ConceptGroup(BaseModel):
+    concepts: List[str] = Field(description="List of concepts explained in this group")
+    panel_range: str = Field(description="Panel range for this group (e.g., '1-5', '6-8')")
 
 class ComicScript(BaseModel):
-    panels: List[Panel] = Field(description="List of 3 panels for the comic")
+    panels: List[Panel] = Field(description="Variable number of panels (1-20+ per concept, plus combination panels)")
+    concept_groups: List[ConceptGroup] = Field(description="Groups of concepts and their panel ranges")
 
 
 class AgentState(BaseModel):
@@ -71,12 +106,20 @@ class AgentState(BaseModel):
 
 
 # --- LLM Initialization ---
-llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.7).with_retry(
-    exponential_jitter_params={"initial": 3}
+llm = ChatOpenAI(
+    model=MODEL_NAME,
+    temperature=0.7,
+    openai_api_base="https://openrouter.ai/api/v1",
+    openai_api_key=os.getenv("OPENAI_API_KEY")
 )
-json_llm = ChatGoogleGenerativeAI(
-    model=MODEL_NAME, temperature=0.5, response_format={"type": "json_object"}
-).with_retry(exponential_jitter_params={"initial": 3})
+
+json_llm = ChatOpenAI(
+    model=MODEL_NAME,
+    temperature=0.5,
+    openai_api_base="https://openrouter.ai/api/v1",
+    openai_api_key=os.getenv("OPENAI_API_KEY"),
+    model_kwargs={"response_format": {"type": "json_object"}}
+)
 
 # --- Helper Functions ---
 
@@ -107,26 +150,77 @@ def wrap_text(text: str, width: int = 25) -> str:
 
 def director_node(state: AgentState):
     """
-    Generates the comic script in JSON format.
+    Generates the comic script in JSON format with 9x9 grid positioning and element extraction.
     """
     print(f"--- Director Node ({state.run_id}) ---")
 
     schema_json = json.dumps(ComicScript.model_json_schema(), indent=2)
 
     prompt_text = f"""
-    You are a Comic Director. Generate a JSON script for a 3-panel comic based on the user's request.
-    
+    You are a Comic Director. Generate a comprehensive JSON script for a layered, multi-panel educational comic based on the user's request.
+
     User Request: "{state.user_prompt}"
-    
+
     You must output valid JSON that matches the following schema:
     {schema_json}
-    
+
+    LAYERED SCENE RENDERING ORDER:
+    1. Background Layer: Sky, indoor space, or abstract background
+    2. Landscape Elements: Mountains, hills, sun, trees, buildings, classroom furniture, etc.
+    3. Characters: People/figures in the scene
+    4. Text & Concept Elements: Dialogue bubbles, equations, icons, symbols
+
+    EDUCATIONAL COMIC STRUCTURE:
+    Phase 1 - Individual Concept Panels (1 panel per concept):
+    - Break down the topic into fundamental concepts
+    - Create EXACTLY 1 panel per concept explaining each idea individually
+    - Each panel focuses on one specific concept with appropriate layered background
+
+    Phase 2 - Concept Integration (2-3 concepts per panel):
+    - Combine 2-3 related concepts in single panels
+    - Show how concepts work together with integrated backgrounds
+    - Demonstrate relationships and dependencies
+
+    Phase 3 - Comprehensive Conclusion:
+    - Final panels that integrate ALL concepts
+    - Provide complete understanding with summary backgrounds
+    - Include summary elements and key takeaways
+
+    BACKGROUND LAYER TYPES:
+    - sky: Outdoor scenes with weather, time of day
+    - indoor: Classrooms, labs, offices, homes
+    - space: Stars, planets, cosmic backgrounds
+    - abstract: Mathematical, scientific, conceptual backgrounds
+
+    LANDSCAPE ELEMENTS:
+    - Natural: mountains, hills, sun, trees, clouds, rivers
+    - Urban: buildings, streets, vehicles
+    - Educational: classroom, desks, blackboard, books, lab equipment
+    - Scientific: atoms, molecules, planets, laboratory tools
+
+    IMPORTANT POSITIONING RULES:
+    - Use a 9x9 grid system (coordinates 0-8 for x,y)
+    - Position characters and elements to avoid collisions
+    - Characters positioned logically (standing on "ground" at y=6-8)
+    - Elements positioned in empty grid spaces, avoiding character positions
+    - Landscape elements positioned behind characters
+    - Text and equations positioned above characters when possible
+
+    ELEMENT EXTRACTION RULES:
+    - Look for mathematical equations (e.g., E=mc², F=ma, a²+b²=c²)
+    - Extract scientific symbols and icons (e.g., atoms, planets, molecules)
+    - Find key textual elements that should be visually emphasized
+    - Position elements strategically for educational impact
+
     Constraints:
-    - 3 panels exactly.
-    - Max 2 characters per panel.
-    - Characters must be reused across panels if they are the same person, but you MUST specify a unique 'pose' and 'expression' for each panel to match the story.
-    - Slots are strictly 'left' or 'right'.
-    - The layout will be 2 panels on top, 1 larger panel centered on the bottom. Plan your storytelling accordingly.
+    - MAXIMUM 1 panel total for testing
+    - Fixed 1-panel structure for testing purposes
+    - Max 2 characters per panel
+    - 1-3 landscape elements per panel for scene setting
+    - Characters reused across panels with unique poses/expressions
+    - Use 9x9 grid coordinates for precise positioning
+    - Extract and position 1-3 key elements per panel (equations, icons, symbols)
+    - Ensure proper layering: Background → Landscape → Characters → Elements
     """
 
     response = json_llm.invoke(prompt_text)
@@ -138,6 +232,38 @@ def director_node(state: AgentState):
 
         data = json.loads(content)
         script = ComicScript(**data)
+
+        # Enforce 1 panel maximum limit
+        if len(script.panels) > 1:
+            print(f"Warning: Generated {len(script.panels)} panels, truncating to 1 maximum.")
+            script.panels = script.panels[:1]
+
+        # Post-process to ensure no collisions
+        for panel in script.panels:
+            occupied_positions = set()
+            # Mark character positions as occupied
+            for char in panel.characters:
+                occupied_positions.add((char.position.x, char.position.y))
+
+            # Adjust element positions to avoid collisions
+            for element in panel.elements:
+                original_pos = (element.position.x, element.position.y)
+                if original_pos in occupied_positions:
+                    # Find nearest available position
+                    for dx in range(-2, 3):
+                        for dy in range(-2, 3):
+                            new_x = min(max(element.position.x + dx, 0), 8)
+                            new_y = min(max(element.position.y + dy, 0), 8)
+                            new_pos = (new_x, new_y)
+                            if new_pos not in occupied_positions:
+                                element.position.x = new_x
+                                element.position.y = new_y
+                                occupied_positions.add(new_pos)
+                                break
+                        else:
+                            continue
+                        break
+
     except Exception as e:
         print(f"Error parsing JSON from Director: {e}")
         script = ComicScript(panels=[])
@@ -164,12 +290,15 @@ def asset_generator_node(state: AgentState):
     script = state.script
     existing_assets = state.assets
 
-    # Process every character instance in every panel
+    # Process every character instance and element in every panel
     guidelines = load_guidelines()
     new_assets = {}
 
     # Cache for character visual consistency: name -> raw_svg_str
     character_svg_cache = {}
+
+    # Cache for element visual consistency: content -> raw_svg_str
+    element_svg_cache = {}
 
     for p_idx, panel in enumerate(script.panels):
         for c_idx, char in enumerate(panel.characters):
@@ -177,7 +306,7 @@ def asset_generator_node(state: AgentState):
             instance_id = f"{p_idx}_{c_idx}"
 
             print(
-                f"Generating asset for: {char.name} (Panel {p_idx}, Slot {char.slot})"
+                f"Generating asset for: {char.name} (Panel {p_idx}, Position {char.position.x},{char.position.y})"
             )
 
             # Check if we have a base model for this character
@@ -275,6 +404,161 @@ def asset_generator_node(state: AgentState):
                 print(f"Error processing {char.name}: {e}")
                 new_assets[instance_id] = "https://placehold.co/400x800/FF0000/FFFFFF/png?text=GenError"
 
+        # Process landscape elements (mountains, buildings, furniture, etc.)
+        for l_idx, landscape in enumerate(panel.landscape_elements):
+            landscape_id = f"landscape_{p_idx}_{l_idx}"
+
+            print(f"Generating landscape element: {landscape.type} (Size: {landscape.size})")
+
+            # Generate SVG for landscape element
+            landscape_prompt = f"""
+            Generate an SVG representation of a {landscape.size} {landscape.type} for a comic scene.
+
+            Details: {landscape.details}
+            Style: Simple, cartoon-like, suitable for background layer
+            Requirements:
+            - Clean, minimal design
+            - Transparent background
+            - Appropriate scale for background element
+            - Output ONLY the raw <svg>...</svg> code. No markdown.
+            """
+
+            try:
+                response = llm.invoke(landscape_prompt)
+                svg_code = response.content.strip()
+
+                # Cleanup code blocks
+                if "```xml" in svg_code:
+                    svg_code = svg_code.replace("```xml", "").replace("```", "")
+                if "```svg" in svg_code:
+                    svg_code = svg_code.replace("```svg", "").replace("```", "")
+                if "```" in svg_code:
+                    svg_code = svg_code.replace("```", "")
+
+                svg_code = svg_code.strip()
+
+                # Save SVG File
+                landscape_safe_name = landscape.type.replace(' ', '_')[:15]
+                svg_filename = f"landscape_{landscape_safe_name}_p{p_idx}_{l_idx}.svg"
+                svg_path = os.path.join(images_dir, svg_filename)
+
+                with open(svg_path, "w") as f:
+                    f.write(svg_code)
+
+                # Convert to PNG
+                png_filename = f"landscape_{landscape_safe_name}_p{p_idx}_{l_idx}.png"
+                png_path = os.path.join(images_dir, png_filename)
+
+                if svg_to_png(svg_code, png_path):
+                    print(f"   -> Saved landscape PNG to {png_path}")
+                    new_assets[landscape_id] = f"images/{png_filename}"
+                else:
+                    print(f"   -> Failed to convert landscape {landscape.type} to PNG.")
+                    new_assets[landscape_id] = "https://placehold.co/300x200/CCCCCC/000000/png?text=Landscape"
+
+            except Exception as e:
+                print(f"Error processing landscape element {landscape.type}: {e}")
+                new_assets[landscape_id] = "https://placehold.co/300x200/CCCCCC/000000/png?text=LandscapeError"
+
+        # Process panel elements (equations, icons, symbols)
+        for e_idx, element in enumerate(panel.elements):
+            element_id = f"element_{p_idx}_{e_idx}"
+
+            print(f"Generating asset for element: {element.content} (Type: {element.type})")
+
+            # Check if we have a cached version of this element
+            if element.content in element_svg_cache:
+                print(f"   -> Using cached element: {element.content}")
+                svg_code = element_svg_cache[element.content]
+            else:
+                # Generate SVG for the element
+                if element.type == "equation":
+                    element_prompt = f"""
+                    Generate a clean SVG representation of the mathematical equation: {element.content}
+
+                    Requirements:
+                    - Use mathematical notation symbols
+                    - Clear, readable typography
+                    - Simple, elegant design
+                    - Transparent background
+                    - Output ONLY the raw <svg>...</svg> code. No markdown.
+                    """
+                elif element.type == "icon":
+                    element_prompt = f"""
+                    Generate a simple SVG icon representing: {element.content}
+
+                    Requirements:
+                    - Clean, minimal design
+                    - Scalable vector graphics
+                    - Transparent background
+                    - Output ONLY the raw <svg>...</svg> code. No markdown.
+                    """
+                elif element.type == "symbol":
+                    element_prompt = f"""
+                    Generate an SVG representation of the symbol/concept: {element.content}
+
+                    Requirements:
+                    - Visual representation of the concept
+                    - Clear and recognizable
+                    - Transparent background
+                    - Output ONLY the raw <svg>...</svg> code. No markdown.
+                    """
+                else:  # text
+                    element_prompt = f"""
+                    Generate an SVG with the text: {element.content}
+
+                    Requirements:
+                    - Clean, readable typography
+                    - Appropriate font styling
+                    - Transparent background
+                    - Output ONLY the raw <svg>...</svg> code. No markdown.
+                    """
+
+                try:
+                    response = llm.invoke(element_prompt)
+                    svg_code = response.content.strip()
+                except Exception as e:
+                    print(f"Error generating SVG for element {element.content}: {e}")
+                    svg_code = f'<svg width="100" height="50" xmlns="http://www.w3.org/2000/svg"><text x="10" y="30" font-family="Arial" font-size="16">{element.content}</text></svg>'  # Fallback
+
+            try:
+                # Cleanup code blocks
+                if "```xml" in svg_code:
+                    svg_code = svg_code.replace("```xml", "").replace("```", "")
+                if "```svg" in svg_code:
+                    svg_code = svg_code.replace("```svg", "").replace("```", "")
+                if "```" in svg_code:
+                    svg_code = svg_code.replace("```", "")
+
+                svg_code = svg_code.strip()
+
+                # Cache the element
+                if element.content not in element_svg_cache:
+                    element_svg_cache[element.content] = svg_code
+
+                # Save SVG File
+                element_safe_name = element.content.replace(' ', '_').replace('=', 'eq').replace('²', '2')[:20]  # Safe filename
+                svg_filename = f"element_{element_safe_name}_p{p_idx}_{e_idx}.svg"
+                svg_path = os.path.join(images_dir, svg_filename)
+
+                with open(svg_path, "w") as f:
+                    f.write(svg_code)
+
+                # Convert to PNG
+                png_filename = f"element_{element_safe_name}_p{p_idx}_{e_idx}.png"
+                png_path = os.path.join(images_dir, png_filename)
+
+                if svg_to_png(svg_code, png_path):
+                    print(f"   -> Saved element PNG to {png_path}")
+                    new_assets[element_id] = f"images/{png_filename}"
+                else:
+                    print(f"   -> Failed to convert element {element.content} to PNG.")
+                    new_assets[element_id] = "https://placehold.co/200x100/FF0000/FFFFFF/png?text=ElementError"
+
+            except Exception as e:
+                print(f"Error processing element {element.content}: {e}")
+                new_assets[element_id] = "https://placehold.co/200x100/FF0000/FFFFFF/png?text=ElementError"
+
     updated_assets = {**existing_assets, **new_assets}
     return {"assets": updated_assets}
 
@@ -294,18 +578,51 @@ def compositor_node(state: AgentState):
     panels_data = []
 
     for p_idx, panel in enumerate(script.panels):
-        panel_obj = {"bg_color": "#f9f9f9", "characters": []}  # Default background
+        panel_obj = {
+            "concept": panel.concept,
+            "background_layer": panel.background_layer.model_dump(),
+            "characters": [],
+            "landscape_elements": [],
+            "elements": []
+        }
 
+        # Add landscape elements
+        for l_idx, landscape in enumerate(panel.landscape_elements):
+            landscape_id = f"landscape_{p_idx}_{l_idx}"
+            landscape_obj = {
+                "type": landscape.type,
+                "image": assets.get(landscape_id, ""),
+                "position": landscape.position.model_dump(),
+                "size": landscape.size,
+                "details": landscape.details,
+            }
+            panel_obj["landscape_elements"].append(landscape_obj)
+
+        # Add characters
         for c_idx, char in enumerate(panel.characters):
             instance_id = f"{p_idx}_{c_idx}"
             char_obj = {
                 "name": char.name,
                 "image": assets.get(instance_id, ""),  # Use instance ID
-                "slot": char.slot,
+                "position": char.position.model_dump(),  # Grid position
                 "facing": char.facing,
                 "dialogue": wrap_text(char.dialogue),
+                "pose": char.pose,
+                "expression": char.expression,
             }
             panel_obj["characters"].append(char_obj)
+
+        # Add elements to panel data
+        for e_idx, element in enumerate(panel.elements):
+            element_id = f"element_{p_idx}_{e_idx}"
+            element_obj = {
+                "type": element.type,
+                "content": element.content,
+                "image": assets.get(element_id, ""),
+                "position": element.position.model_dump(),  # Grid position
+                "size": element.size,
+            }
+            panel_obj["elements"].append(element_obj)
 
         panels_data.append(panel_obj)
 
