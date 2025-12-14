@@ -17,9 +17,30 @@
         body {
             background: var(--bg-color);
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
             padding: 20px;
             font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+        }
+
+        .comic-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .comic-title h1 {
+            font-size: 2.5em;
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .comic-title h2 {
+            font-size: 1.2em;
+            margin: 5px 0 0 0;
+            font-weight: normal;
+            opacity: 0.8;
         }
 
         /* COMIC PAGE LAYOUT */
@@ -137,12 +158,9 @@
             line-height: 1.3;
             text-align: center;
             box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
-            white-space: normal;
+            white-space: pre-line;
             /* Ensure text wrap */
             overflow-wrap: break-word;
-
-            /* ADD THIS LINE BELOW */
-            white-space: pre-line;
         }
 
         /* Bubble tails - simple CSS triangles */
@@ -195,14 +213,20 @@
 
 <body>
 
+    <!-- Comic Title -->
+    <div class="comic-title">
+        <h1>{{ comic_title }}</h1>
+        <h2>{{ comic_subtitle }}</h2>
+    </div>
+
     <div class="comic-page">
         {% for panel in panels %}
         <div class="panel" id="panel-{{ loop.index }}">
             <!-- Background -->
-            {% if panel.background_image %}
-            <img src="{{ panel.background_image }}" class="panel-bg" alt="Background">
+            {% if panel['background_layer']['color'] %}
+            <div class="panel-bg" style="background-color: {{ panel['background_layer']['color'] }}"></div>
             {% else %}
-            <div class="panel-bg" style="background-color: {{ panel.bg_color | default('#e0e0e0') }}"></div>
+            <div class="panel-bg" style="background-color: #e0e0e0"></div>
             {% endif %}
 
             <!-- Characters -->

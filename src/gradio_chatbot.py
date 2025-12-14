@@ -9,6 +9,7 @@ import ssl
 import subprocess
 import re
 import shutil
+import base64
 
 # Global variable to store the path of the last successful run
 LAST_RUN_HTML_PATH = None
@@ -84,7 +85,15 @@ def generate_comic_html(idea, reuse_last_run=False):
         try:
             with open(LAST_RUN_HTML_PATH, "r") as f:
                 html_content = f.read()
-            return html_content, '\n'.join(logs), LAST_RUN_HTML_PATH
+            # Try to get graph from same run dir
+            run_dir = os.path.dirname(LAST_RUN_HTML_PATH)
+            graph_file = os.path.join(run_dir, "graph.png")
+            graph_data_url = None
+            if os.path.exists(graph_file):
+                with open(graph_file, "rb") as f:
+                    graph_data = f.read()
+                graph_data_url = f"data:image/png;base64,{base64.b64encode(graph_data).decode('utf-8')}"
+            return html_content, '\n'.join(logs), LAST_RUN_HTML_PATH, graph_data_url
         except Exception as e:
             logs.append(f"❌ Error reading last run file: {e}")
             # Fall through to normal generation if reading fails
@@ -100,27 +109,36 @@ def generate_comic_html(idea, reuse_last_run=False):
         if result.returncode == 0:
             html_file = None
             for line in reversed(stdout_logs):
-                match = re.search(r'Comic generated! Open (runs/[\w-]+/index.html) to view.', line)
+                match = re.search(r'Comic generated! Open (\.\./runs/[\w\-]+/index.html) to view.', line)
                 if match:
                     html_file = match.group(1)
                     break
-            
+
             if html_file is None:
                 logs.append("❌ Could not find HTML file path in agent output.")
-                return None, '\n'.join(logs)
+                return None, '\n'.join(logs), None, None
             if os.path.exists(html_file):
                 logs.append("📖 Comic HTML generated successfully!")
                 LAST_RUN_HTML_PATH = html_file  # Update the last run path
                 with open(html_file, "r") as f:
                     html_content = f.read()
-                return html_content, '\n'.join(logs), html_file
+                # Get graph PNG
+                run_dir = os.path.dirname(html_file)
+                graph_file = os.path.join(run_dir, "graph.png")
+                graph_data_url = None
+                if os.path.exists(graph_file):
+                    with open(graph_file, "rb") as f:
+                        graph_data = f.read()
+                    graph_data_url = f"data:image/png;base64,{base64.b64encode(graph_data).decode('utf-8')}"
+                    logs.append("📊 Graph visualization loaded!")
+                return html_content, '\n'.join(logs), html_file, graph_data_url
             else:
                 logs.append("❌ HTML file not found")
         else:
             logs.append(f"❌ Agent failed with return code {result.returncode}")
     except Exception as e:
         logs.append(f"❌ Error calling agent: {e}")
-    return None, '\n'.join(logs), html_file
+    return None, '\n'.join(logs), None, None
 
 def send_email(to_email, html_content):
     """Send email with HTML attachment"""
@@ -182,28 +200,33 @@ def zip_run_folder(html_path):
 def process_idea(idea, pdf_file, email, reuse_last_run):
     print(f"Processing idea: {idea}, email: {email}, reuse_last_run: {reuse_last_run}")
     if not email:
-        return "", "❌ Please enter your email!", gr.update(visible=False)
-    html_content, logs, html_file = generate_comic_html(idea, reuse_last_run)
+        return "", "❌ Please enter your email!", gr.update(visible=False), "<p style='text-align:center;'>🎭 Generate a comic to see it here!</p>", None
+    html_content, logs, html_file, graph_data_url = generate_comic_html(idea, reuse_last_run)
     print("HTML content generated:", html_content is not None)
     print("Logs:", logs)
-    
+    print("Graph data URL:", graph_data_url is not None)
+
     zip_path = None
     if html_file:
          zip_path = zip_run_folder(html_file)
 
     if html_content:
         send_email(email, html_content)
+        iframe_html = f"<iframe srcdoc='{html_content.replace(chr(39), '&#39;')}' width='100%' height='600' style='border:1px solid #ccc;'></iframe>"
+        graph_img = f"<img src='{graph_data_url}' style='max-width:100%; height:auto;' />" if graph_data_url else ""
         if zip_path:
-             return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=zip_path, visible=True, label="📥 Download Full Run (ZIP)")
+             return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=zip_path, visible=True, label="📥 Download Full Run (ZIP)"), iframe_html, graph_img
         else:
-             return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=html_file, visible=True, label="📥 Download HTML Only") # Fallback
+             return "✅ Your cartoon comic has been sent to your email! 📧✨", logs, gr.update(value=html_file, visible=True, label="📥 Download HTML Only"), iframe_html, graph_img # Fallback
     else:
-        return "❌ Failed to generate comic. Please try again.", logs, gr.update(visible=False)
+        return "❌ Failed to generate comic. Please try again.", logs, gr.update(visible=False), "<p style='text-align:center;'>🎭 Generate a comic to see it here!</p>", ""
 
 with gr.Blocks(title="🎨 Cartoon Generator for Learning anything!") as demo:
     gr.Markdown("# 🎨 Cartoon Generator for Learning anything! 📚\nTurn your ideas into fun cartoon novels! 🌟")
 
-    with gr.Accordion("🎭 See Example Comic", open=False):
+    example_html_display = gr.HTML(value="<p style='text-align:center;'>🎭 Generate a comic to see it here!</p>", label="Generated Comic")
+
+    with gr.Accordion("🎭 See Original Example Comic", open=False):
         try:
             with open("output.html", "r") as f:
                 example_html = f.read()
@@ -219,6 +242,7 @@ with gr.Blocks(title="🎨 Cartoon Generator for Learning anything!") as demo:
     progress = gr.HTML(visible=False)
     output = gr.Textbox(label="Status", interactive=False)
     logs = gr.TextArea(label="🎯 Processing Logs", interactive=False, lines=10, placeholder="Logs will appear here during processing...")
+    graph_display = gr.HTML(value="", label="Agent Graph Visualization")
     download = gr.DownloadButton("📥 Download Full Run (ZIP)", visible=False)
 
     submit.click(
@@ -229,13 +253,14 @@ with gr.Blocks(title="🎨 Cartoon Generator for Learning anything!") as demo:
     🎨 Drawing cartoons... 📖 Writing story... ✉️ Preparing email...
     </div>
     """),
-            gr.update(interactive=False)  # disable button
+            gr.update(interactive=False),  # disable button
+            gr.update(value="<p style='text-align:center;'>⏳ Generating comic...</p>")  # update display
         ),
-        outputs=[progress, submit]
+        outputs=[progress, submit, example_html_display]
     ).then(
         process_idea,
         [idea, pdf_file, email, reuse_last],
-        [output, logs, download],
+        [output, logs, download, example_html_display, graph_display],
         show_progress=True,
     ).then(
         lambda: (

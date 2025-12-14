@@ -1,2 +1,4 @@
 .env
-runs
+runs/
+src/runs/
+.DS_Store

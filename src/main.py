@@ -6,6 +6,7 @@ import textwrap
 import cairosvg
 import uuid
 import argparse
+import base64
 from jinja2 import Environment, FileSystemLoader
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -20,7 +21,7 @@ load_dotenv()
 MODEL_NAME = "gemini-2.5-flash"
 TEMPLATE_DIR = "templates"
 TEMPLATE_NAME = "template_panels.html"
-BASE_OUTPUT_DIR = "runs"
+BASE_OUTPUT_DIR = "./runs"
 GUIDELINES_PATH = "mds/svg_guidelines.md"
 
 # --- State Definition (Pydantic) ---
@@ -31,6 +32,12 @@ class Character(BaseModel):
     visual_desc: str = Field(
         description="Visual description of the character (e.g., stick figure details)"
     )
+
+
+class BackgroundLayer(BaseModel):
+    type: str = Field(description="Background type: 'sky', 'indoor', 'space', 'abstract'")
+    color: str = Field(description="CSS color name or hex code")
+    gradient: Optional[str] = Field(default=None, description="Optional CSS gradient")
 
 
 class PanelCharacter(BaseModel):
@@ -49,7 +56,8 @@ class PanelCharacter(BaseModel):
 
 class Panel(BaseModel):
     panel_id: int = Field(description="The panel number")
-    background_prompt: str = Field(description="Description of the background scene")
+    concept: str = Field(description="The specific concept explained in this panel")
+    background_layer: BackgroundLayer = Field(description="Background layer specification")
     characters: List[PanelCharacter] = Field(
         description="List of characters in this panel"
     )
@@ -115,12 +123,17 @@ def director_node(state: AgentState):
 
     prompt_text = f"""
     You are a Comic Director. Generate a JSON script for a 3-panel comic based on the user's request.
-    
+
     User Request: "{state.user_prompt}"
-    
+
     You must output valid JSON that matches the following schema:
     {schema_json}
-    
+
+    For background_layer:
+    - type: Choose from 'sky', 'indoor', 'space', 'abstract'
+    - color: A CSS color name or hex code (e.g., 'blue', '#87CEEB')
+    - gradient: Optional gradient description (e.g., 'linear-gradient(to bottom, #87CEEB, white)')
+
     Constraints:
     - 3 panels exactly.
     - Max 2 characters per panel.
@@ -281,7 +294,7 @@ def asset_generator_node(state: AgentState):
 
 def compositor_node(state: AgentState):
     """
-    Renders the HTML using Jinja2 template.
+    Renders the HTML using Jinja2 template, embedding images as base64.
     """
     print(f"--- Compositor Node ({state.run_id}) ---")
     if not state.script:
@@ -290,30 +303,73 @@ def compositor_node(state: AgentState):
     script = state.script
     assets = state.assets
 
+    # Function to encode image to base64 data URL
+    def encode_image(image_path):
+        if not image_path or not os.path.exists(image_path):
+            return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="  # 1x1 transparent PNG
+        try:
+            with open(image_path, "rb") as f:
+                data = f.read()
+            encoded = base64.b64encode(data).decode('utf-8')
+            return f"data:image/png;base64,{encoded}"
+        except Exception as e:
+            print(f"Error encoding image {image_path}: {e}")
+            return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+
+    # Generate title and subtitle
+    try:
+        title_prompt = f"""
+        Create a fun cartoon title and subtitle for a comic explaining: "{state.user_prompt}"
+
+        Title: Should be catchy and cartoon-like, e.g., "The Wacky World of Photosynthesis"
+        Subtitle: Explain the main characters, e.g., "Starring Alex and Sam on their plant adventure!"
+
+        Output format:
+        Title: [title]
+        Subtitle: [subtitle]
+        """
+        title_response = llm.invoke(title_prompt)
+        title_text = title_response.content.strip()
+        # Parse
+        title = "Amazing Cartoon Explanation"
+        subtitle = "Featuring fun characters!"
+        for line in title_text.split('\n'):
+            if line.startswith('Title:'):
+                title = line.replace('Title:', '').strip()
+            elif line.startswith('Subtitle:'):
+                subtitle = line.replace('Subtitle:', '').strip()
+    except Exception as e:
+        print(f"Error generating title: {e}")
+        title = "Fun Cartoon Explanation"
+        subtitle = "Starring our heroes!"
+
     # Transform script data into the format expected by the template
     panels_data = []
 
     for p_idx, panel in enumerate(script.panels):
-        panel_obj = {"bg_color": "#f9f9f9", "characters": []}  # Default background
+        # Start with the panel's dict representation
+        panel_data = panel.model_dump()
 
-        for c_idx, char in enumerate(panel.characters):
+        # Update characters with base64 images
+        for c_idx, char_data in enumerate(panel_data["characters"]):
             instance_id = f"{p_idx}_{c_idx}"
-            char_obj = {
-                "name": char.name,
-                "image": assets.get(instance_id, ""),  # Use instance ID
-                "slot": char.slot,
-                "facing": char.facing,
-                "dialogue": wrap_text(char.dialogue),
-            }
-            panel_obj["characters"].append(char_obj)
+            image_path = assets.get(instance_id, "")
+            if image_path.startswith("images/"):
+                # Convert relative path to full path
+                run_dir = os.path.join(BASE_OUTPUT_DIR, state.run_id)
+                full_path = os.path.join(run_dir, image_path)
+                image_data_url = encode_image(full_path)
+            else:
+                image_data_url = image_path
+            char_data["image"] = image_data_url
 
-        panels_data.append(panel_obj)
+        panels_data.append(panel_data)
 
     # Render Template
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
     try:
         template = env.get_template(TEMPLATE_NAME)
-        html_content = template.render(panels=panels_data)
+        html_content = template.render(panels=panels_data, comic_title=title, comic_subtitle=subtitle)
         return {"html_output": html_content}
     except Exception as e:
         return {"html_output": f"Error rendering template: {e}"}
@@ -373,5 +429,26 @@ if __name__ == "__main__":
     script = cast(ComicScript, result["script"])
     with open(os.path.join(run_dir, "script.json"), "w") as f:
         f.write(script.model_dump_json(indent=4))
+
+    # Generate graph visualization
+    try:
+        graph_png = app.get_graph().draw_mermaid_png()
+        graph_filename = os.path.join(run_dir, "graph.png")
+        with open(graph_filename, "wb") as f:
+            f.write(graph_png)
+        print(f"📊 Graph visualization saved to {graph_filename}")
+    except AttributeError as e:
+        print(f"Error: draw_mermaid_png method not available: {e}")
+        # Fallback: generate mermaid string
+        try:
+            mermaid_code = app.get_graph().draw_mermaid()
+            mermaid_filename = os.path.join(run_dir, "graph.mmd")
+            with open(mermaid_filename, "w") as f:
+                f.write(mermaid_code)
+            print(f"📊 Mermaid graph saved to {mermaid_filename}")
+        except Exception as e2:
+            print(f"Error generating mermaid: {e2}")
+    except Exception as e:
+        print(f"Error generating graph visualization: {e}")
 
     print(f"Comic generated! Open {output_filename} to view.")
