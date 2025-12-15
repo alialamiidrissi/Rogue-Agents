@@ -49,7 +49,7 @@ Welcome to **Cartoon Generator for Learning Anything**! This innovative app uses
 
 4. **Run the app**:
    ```bash
-   python src/gradio_chatbot.py
+   python comicgen/gradio_chatbot.py
    ```
 
 5. **Access the interface**:

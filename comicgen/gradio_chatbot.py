@@ -102,7 +102,7 @@ def generate_comic_html(idea, reuse_last_run=False):
     try:
         logs.append("🤖 Calling AI agent to create comic script...")
         print(logs[-1])
-        result = subprocess.run(["python", "main.py", idea, "--fast"], cwd=".", capture_output=True, text=True)
+        result = subprocess.run(["python", "comicgen/main.py", idea, "--fast"], cwd=".", capture_output=True, text=True)
         stdout_logs = result.stdout.split('\n')
         logs.extend(stdout_logs)
         logs.extend(result.stderr.split('\n'))

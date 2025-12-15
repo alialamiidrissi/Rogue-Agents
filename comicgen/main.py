@@ -19,10 +19,10 @@ load_dotenv()
 
 # --- Configuration ---
 MODEL_NAME = "gemini-2.5-flash"
-TEMPLATE_DIR = "templates"
+TEMPLATE_DIR = "comicgen/templates"
 TEMPLATE_NAME = "template_panels.html"
 BASE_OUTPUT_DIR = "./runs"
-GUIDELINES_PATH = "mds/svg_guidelines.md"
+GUIDELINES_PATH = "comicgen/mds/svg_guidelines.md"
 
 # --- State Definition (Pydantic) ---
 
