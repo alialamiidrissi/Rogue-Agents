@@ -80,11 +80,10 @@ def director_node(state: AgentState):
     
     Compatible Characters (Visual descriptions should map to these):
     1. "Aavatar": Generic human (customizable hair/clothes).
-    2. "Humaaans": Abstract flat style.
-    3. "Ethan": Man with beard & glasses.
-    4. "Bean": Living coffee mug.
-    5. "Deenuova" / "Deynuovo": Specific visually distinct humans.
-    6. "Bill" (Man in suit) / "Sophie" (Old grandma style woman): Front-view only.
+    2. "Ethan": Man with beard & glasses.
+    3. "Bean": Living coffee mug.
+    4. "Deenuova" / "Deynuovo": Specific visually distinct humans.
+    5. "Bill" (Man in suit) / "Sophie" (Old grandma style woman): Front-view only.
     """
 
     structured_llm = add_retry(llm.with_structured_output(ComicScript.model_json_schema(), method="json_schema"))
@@ -168,10 +167,9 @@ def asset_generator_node(state: AgentState):
             
             Available Characters & Rules:
             1. "aavatar": Best for general purpose.
-            2. "humaaans": Abstract style.
-            3. "ethan": Man with beard/glasses. Supports 'back', 'side', 'straight'.
-            4. "bean": Coffee mug.
-            5. "bill" (Man in suit), "sophie" (Old grandma style woman): Front view only.
+            2. "ethan": Man with beard/glasses. Supports 'back', 'side', 'straight'.
+            3. "bean": Coffee mug.
+            4. "bill" (Man in suit), "sophie" (Old grandma style woman): Front view only.
             
             If this character appeared in previous panels, try to keep the 'style' parameters consistent (same hair, clothes, etc.), but change the 'pose' and 'emotion'.
             
