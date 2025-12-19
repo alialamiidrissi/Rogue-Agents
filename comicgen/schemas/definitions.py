@@ -32,7 +32,7 @@ class PanelCharacter(BaseModel):
 class Panel(BaseModel):
     panel_id: int = Field(description="The panel number")
     concept: str = Field(description="The specific concept explained in this panel")
-    background_layer: BackgroundLayer = Field(description="Background layer specification")
+    # background_layer: BackgroundLayer = Field(description="Background layer specification")
     characters: List[PanelCharacter] = Field(
         description="List of characters in this panel"
     )

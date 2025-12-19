@@ -34,11 +34,6 @@ def single_page_director_node(state: AgentState):
 
     User Request: "{state.user_prompt}"
 
-    For background_layer:
-    - type: Choose from 'sky', 'indoor', 'space', 'abstract'
-    - color: A CSS color name or hex code (e.g., 'blue', '#87CEEB')
-    - gradient: Optional gradient description (e.g., 'linear-gradient(to bottom, #87CEEB, white)')
-
     Constraints:
     - 3 panels exactly.
     - Max 2 characters per panel.
@@ -86,10 +81,6 @@ def story_director_node(state: AgentState):
     Structure:
     - Each page has exactly 3 panels (2 top, 1 bottom).
     - Plan your pacing so that every 3rd panel completes a "page" or scene beat.
-
-    For background_layer:
-    - type: 'sky', 'indoor', 'space', 'abstract'
-    - color: CSS color
     
     Constraints:
     - Max 2 characters per panel.

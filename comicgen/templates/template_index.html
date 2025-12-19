@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ comic_title }}</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', sans-serif;
+            background: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .cover-box {
+            background: white;
+            padding: 40px;
+            border: 5px solid black;
+            box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin: 0;
+            color: #333;
+        }
+
+        h2 {
+            font-size: 1.5em;
+            color: #666;
+            font-weight: normal;
+            margin-top: 10px;
+        }
+
+        .start-btn {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 15px 30px;
+            background: #ff4757;
+            color: white;
+            text-decoration: none;
+            font-size: 1.5em;
+            border: 3px solid black;
+            box-shadow: 5px 5px 0 black;
+            transition: transform 0.1s;
+        }
+
+        .start-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 3px 3px 0 black;
+        }
+
+        .page-list {
+            margin-top: 30px;
+            list-style: none;
+            padding: 0;
+        }
+
+        .page-list li {
+            margin: 5px 0;
+        }
+
+        .page-list a {
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="cover-box">
+        <h1>{{ comic_title }}</h1>
+        <h2>{{ comic_subtitle }}</h2>
+
+        <a href="{{ start_link }}" class="start-btn">Start Reading</a>
+
+        <ul class="page-list">
+            {% for page in pages %}
+            <li><a href="{{ page.link }}">Page {{ page.num }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+
+</body>
+
+</html>

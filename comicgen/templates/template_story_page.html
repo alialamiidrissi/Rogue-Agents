@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ comic_title }} - Page {{ page_num }}</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f4;
+            --panel-border: 4px solid #000;
+            --panel-gap: 15px;
+            --bubble-bg: #fff;
+            --bubble-border: 2px solid #000;
+        }
+
+        body {
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+        }
+
+        .header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .comic-page {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--panel-gap);
+            width: 1000px;
+            max-width: 95vw;
+        }
+
+        /* PANELS */
+        .panel {
+            aspect-ratio: 1 / 1;
+            background: white;
+            border: var(--panel-border);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        /* Center the 3rd panel (2 top, 1 bottom layout) */
+        .panel:nth-child(3) {
+            grid-column: 1 / -1;
+            width: 50%;
+            justify-self: center;
+        }
+
+        .panel-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+            object-fit: cover;
+        }
+
+        /* CHARACTERS */
+        .character-layer {
+            position: absolute;
+            bottom: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .character {
+            position: absolute; bottom: 0; height: 75%; width: auto; max-width: 40%;
+        }
+        .char-left { left: 2%; }
+        .char-right { right: 2%; transform: scaleX(-1); }
+        .facing-right { transform: scaleX(1) !important; }
+        .facing-left { transform: scaleX(-1) !important; }
+
+        /* DIALOGUE */
+        .dialogue-layer {
+            position: absolute; top: 0; width: 100%; height: 100%;
+            z-index: 2;
+        }
+        .bubble {
+            position: absolute; background: var(--bubble-bg);
+            border: var(--bubble-border); border-radius: 15px;
+            padding: 8px 10px; max-width: 45%; font-size: 11px;
+            line-height: 1.3; text-align: center;
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+            white-space: pre-line; overflow-wrap: break-word;
+        }
+        /* Tails */
+        .bubble::after {
+            content: ''; position: absolute; bottom: -8px;
+            border-width: 8px 8px 0; border-style: solid;
+            border-color: var(--bubble-border) transparent;
+            display: block; width: 0;
+        }
+        .bubble::before {
+            content: ''; position: absolute; bottom: -5px;
+            border-width: 7px 7px 0; border-style: solid;
+            border-color: var(--bubble-bg) transparent;
+            display: block; width: 0; z-index: 1;
+        }
+        .bubble-left { top: 5%; left: 2%; }
+        .bubble-left::after, .bubble-left::before { left: 15px; }
+        .bubble-right { top: 5%; right: 2%; }
+        .bubble-right::after, .bubble-right::before { right: 15px; }
+
+        /* NAVIGATION */
+        .nav-bar {
+            margin-top: 30px;
+            display: flex;
+            gap: 20px;
+        }
+        .nav-btn {
+            text-decoration: none;
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .nav-btn:hover {
+            background: #555;
+        }
+        .disabled {
+            background: #ccc;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>{{ comic_title }}</h1>
+        <p>Page {{ page_num }} of {{ total_pages }}</p>
+    </div>
+
+    <div class="comic-page">
+        {% for panel in panels %}
+        <div class="panel">
+            <!-- Background -->
+            {% if panel['background_layer']['color'] %}
+            <div class="panel-bg" style="background-color: {{ panel['background_layer']['color'] }}"></div>
+            {% else %}
+            <div class="panel-bg" style="background-color: #e0e0e0"></div>
+            {% endif %}
+
+            <!-- Characters -->
+            <div class="character-layer">
+                {% for char in panel['characters'] %}
+                {% if char['image'] %}
+                <img src="{{ char['image'] }}"
+                    class="character {% if char['slot'] == 'left' %}char-left{% else %}char-right{% endif %} {% if char.get('facing') %}facing-{{ char['facing'] }}{% endif %}"
+                    alt="{{ char['name'] }}">
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Dialogue -->
+            <div class="dialogue-layer">
+                {% for char in panel['characters'] %}
+                {% if char['dialogue'] %}
+                <div class="bubble {% if char['slot'] == 'left' %}bubble-left{% else %}bubble-right{% endif %}">
+                    {{ char['dialogue'] }}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="nav-bar">
+        {% if prev_link %}
+        <a href="{{ prev_link }}" class="nav-btn">&larr; Previous</a>
+        {% else %}
+        <span class="nav-btn disabled">&larr; Previous</span>
+        {% endif %}
+
+        <a href="{{ index_link }}" class="nav-btn">Home</a>
+
+        {% if next_link %}
+        <a href="{{ next_link }}" class="nav-btn">Next &rarr;</a>
+        {% else %}
+        <span class="nav-btn disabled">Next &rarr;</span>
+        {% endif %}
+    </div>
+
+</body>
+</html>
