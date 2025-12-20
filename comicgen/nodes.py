@@ -69,6 +69,11 @@ def story_director_node(state: AgentState):
     """
     print(f"--- Story Director Node ({state.run_id}) ---")
 
+    # FAST MODE CHECK
+    if state.fast_mode and state.script:
+        print("🚀 Fast Mode: Reusing existing script.")
+        return {"script": state.script}
+
     prompt_text = f"""
     You are a Comic Director. Generate a script for a graphic novel style comic based on the user's request.
     
@@ -128,10 +133,17 @@ def asset_generator_node(state: AgentState):
         print("No script found.")
         return {"assets": state.assets}
 
+    # FAST MODE CHECK
+    if state.fast_mode and state.assets:
+        print("🚀 Fast Mode: Reusing existing assets.")
+        return {"assets": state.assets}
+
     # Setup Run Directories
     run_dir = os.path.join(BASE_OUTPUT_DIR, state.run_id)
     images_dir = os.path.join(run_dir, "images")
+    params_dir = os.path.join(run_dir, "params")
     os.makedirs(images_dir, exist_ok=True)
+    os.makedirs(params_dir, exist_ok=True)
 
     script = state.script
     existing_assets = state.assets.copy() # Avoid mutating original directly till return
@@ -203,6 +215,12 @@ def asset_generator_node(state: AgentState):
                         content = content[0]["text"]
                     print(f"   -> Generated JSON: {content}")
                     data = json.loads(content)
+
+                    # Save parameters for caching/debugging
+                    params_file = os.path.join(params_dir, f"{instance_id}.json")
+                    with open(params_file, "w") as pf:
+                        json.dump(data, pf, indent=2)
+
                     comic_char = ComicCharacter(**data)
                     url = comic_char.to_url()
                     

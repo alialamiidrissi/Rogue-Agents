@@ -1,12 +1,13 @@
 
 import argparse
 import os
+import glob
 import json
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
 
-from comicgen.schemas.definitions import AgentState
+from comicgen.schemas.definitions import AgentState, ComicScript
 from comicgen.nodes import story_director_node, asset_generator_node, story_compositor_node
 
 # Load env variables
@@ -38,10 +39,49 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     user_topic = args.prompt
-    
+
     # Init state
-    inputs = AgentState(user_prompt=user_topic, fast_mode=args.fast)
-    run_id = inputs.run_id
+    if args.fast:
+        # Find latest run
+        list_of_files = glob.glob('./runs/*') 
+        if not list_of_files:
+            print("❌ No previous runs found. Cannot use fast mode.")
+            exit(1)
+            
+        latest_run_dir = max(list_of_files, key=os.path.getmtime)
+        run_id = os.path.basename(latest_run_dir)
+        print(f"🚀 Fast Mode: Loading from run {run_id}")
+        
+        # Load script
+        script_path = os.path.join(latest_run_dir, "script.json")
+        try:
+            with open(script_path, "r") as f:
+                script_data = json.load(f)
+                script = ComicScript(**script_data)
+        except FileNotFoundError:
+             print("❌ script.json not found in latest run.")
+             exit(1)
+
+        # Reconstruct Assets Map
+        assets = {}
+        images_dir = os.path.join(latest_run_dir, "images")
+        
+        # We perform a "best effort" recovery of asset paths based on the script structure
+        # Logic mirrors asset_generator_node naming convention
+        for p_idx, panel in enumerate(script.panels):
+            for c_idx, char in enumerate(panel.characters):
+                instance_id = f"{p_idx}_{c_idx}"
+                char_safe_name = char.name.lower().replace(' ', '_')
+                expected_filename = f"{char_safe_name}_p{p_idx}_{c_idx}.png"
+                # Check if file exists to be safe
+                if os.path.exists(os.path.join(images_dir, expected_filename)):
+                    assets[instance_id] = f"images/{expected_filename}" 
+        
+        inputs = AgentState(user_prompt=user_topic, fast_mode=True, run_id=run_id, script=script, assets=assets)
+
+    else:
+        inputs = AgentState(user_prompt=user_topic, fast_mode=False)
+        run_id = inputs.run_id
     
     print(f"Interactive Story Generator")
     print(f"Topic: '{user_topic}'")

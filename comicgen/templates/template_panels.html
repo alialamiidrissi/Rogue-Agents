@@ -223,11 +223,11 @@
         {% for panel in panels %}
         <div class="panel" id="panel-{{ loop.index }}">
             <!-- Background -->
-            {% if panel['background_layer']['color'] %}
-            <div class="panel-bg" style="background-color: {{ panel['background_layer']['color'] }}"></div>
-            {% else %}
+            <!-- {% if panel['background_layer']['color'] %}
+            <div class="panel-bg" style="background-color: {{ panel['background_layer']['color'] }}"></div> -->
+            <!-- {% else %} -->
             <div class="panel-bg" style="background-color: #e0e0e0"></div>
-            {% endif %}
+            <!-- {% endif %} -->
 
             <!-- Characters -->
             <div class="character-layer">
